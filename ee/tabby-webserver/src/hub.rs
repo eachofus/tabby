@@ -12,6 +12,7 @@ pub trait Hub {
     async fn write_log(x: LogEntry);
 }
 
+#[allow(dead_code)]
 fn tracing_context() -> tarpc::context::Context {
     tarpc::context::current()
 }

@@ -1,5 +1,9 @@
 use serde::Serialize;
-use tantivy::time::Instant;
+// ❌ Убираем deprecated import
+// use tantivy::time::Instant;
+
+// ✅ Добавляем правильные imports
+use std::time::Instant;
 
 pub struct OpenTimer<'a> {
     name: &'static str,
@@ -13,6 +17,7 @@ impl OpenTimer<'_> {
     ///
     /// The timer is stopped automatically
     /// when the `OpenTimer` is dropped.
+    #[allow(dead_code)]  // ✅ Добавляем для подавления warning
     pub fn open(&mut self, name: &'static str) -> OpenTimer<'_> {
         OpenTimer {
             name,
@@ -27,7 +32,8 @@ impl Drop for OpenTimer<'_> {
     fn drop(&mut self) {
         self.timer_tree.timings.push(Timing {
             name: self.name,
-            duration: self.start.elapsed().whole_microseconds() as i64,
+            // ✅ Изменяем метод получения времени
+            duration: self.start.elapsed().as_micros() as i64,
             depth: self.depth,
         });
     }
@@ -66,7 +72,6 @@ impl TimerTree {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
