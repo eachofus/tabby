@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
 pub struct KatanaRequestResponse {
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(dead_code)] // TODO: Will be used in enhanced analytics
     pub timestamp: String,
     pub request: KatanaRequest,
     pub response: KatanaResponse,
@@ -12,10 +12,10 @@ pub struct KatanaRequestResponse {
 
 #[derive(Deserialize, Debug)]
 pub struct KatanaRequest {
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(dead_code)] // TODO: Will be used for API pattern analysis
     pub method: String,
     pub endpoint: String,
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(dead_code)] // TODO: Will be used for ML processing
     pub raw: String,
 }
 
@@ -24,7 +24,7 @@ pub struct KatanaResponse {
     pub status_code: Option<u16>,
     pub headers: HashMap<String, String>,
     pub body: Option<String>,
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(dead_code)] // TODO: Core of technology stack analysis
     pub technologies: Option<Vec<String>>,
     pub raw: Option<String>,
 }
