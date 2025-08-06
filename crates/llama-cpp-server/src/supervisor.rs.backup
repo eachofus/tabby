@@ -107,35 +107,18 @@ impl LlamaCppSupervisor {
                 .lines();
                 let mut error_lines = VecDeque::with_capacity(100);
 
-                let status_code = tokio::select! {
-                    // Ожидаем завершения процесса
-                    result = process.wait() => {
-                        // Процесс завершился, читаем оставшийся stderr
-                        while let Ok(Some(line)) = stderr.next_line().await {
-                            if !line.contains("GET /health") {
-                                if error_lines.len() >= 100 {
-                                    error_lines.pop_front();
-                                }
-                                error_lines.push_back(line);
-                            }
+                let wait_handle = process.wait();
+
+                while let Ok(Some(line)) = stderr.next_line().await {
+                    if !line.contains("GET /health") {
+                        if error_lines.len() >= 100 {
+                            error_lines.pop_front();
                         }
-                        result.ok().and_then(|s| s.code()).unwrap_or(-1)
+                        error_lines.push_back(line);
                     }
-                    // Читаем stderr до тех пор, пока процесс не завершится
-                    _ = async {
-                        while let Ok(Some(line)) = stderr.next_line().await {
-                            if !line.contains("GET /health") {
-                                if error_lines.len() >= 100 {
-                                    error_lines.pop_front();
-                                }
-                                error_lines.push_back(line);
-                            }
-                        }
-                    } => {
-                        // stderr закрылся, ждем завершения процесса
-                        process.wait().await.ok().and_then(|s| s.code()).unwrap_or(-1)
-                    }
-                };
+                }
+
+                let status_code = wait_handle.await.ok().and_then(|s| s.code()).unwrap_or(-1);
 
                 if status_code != 0 {
                     warn!(
@@ -274,10 +257,5 @@ fn port_is_available(port: u16) -> bool {
 impl Drop for LlamaCppSupervisor {
     fn drop(&mut self) {
         self.handle.abort();
-        // Принудительная очистка зомби-процессов
-        let _ = std::process::Command::new("pkill")
-            .arg("-f")
-            .arg("llama-server")
-            .output();
     }
 }
