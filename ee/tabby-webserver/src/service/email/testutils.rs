@@ -17,6 +17,9 @@ pub struct Message {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct MailAddress {
+    #[allow(dead_code)] 
+    // TODO: Use name field for email display formatting (e.g., "John Doe <john@example.com>")
+    // Currently only used for Mailpit API deserialization
     pub name: Option<String>,
     pub address: String,
 }

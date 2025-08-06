@@ -62,6 +62,7 @@ impl ChatCompletionStream for FakeChatCompletionStream {
             object: "chat.completion".to_owned(),
             choices: vec![ChatChoice {
                 index: 0,
+                #[allow(deprecated)] // TODO: Remove function_call when async_openai_alt updates
                 message: ChatCompletionResponseMessage {
                     role: Role::Assistant,
                     content: Some(
@@ -70,8 +71,8 @@ impl ChatCompletionStream for FakeChatCompletionStream {
                              3. Can you explain how the Flask app works in this context?"
                             .to_string(),
                     ),
-                    tool_calls: None,
-                    function_call: None,
+                    function_call: None,  // deprecated, но обязательное
+                    tool_calls: None,     // новое поле
                     refusal: None,
                 },
                 finish_reason: Some(FinishReason::Stop),
@@ -101,11 +102,12 @@ impl ChatCompletionStream for FakeChatCompletionStream {
                 object: "chat.completion.chunk".to_owned(),
                 choices: vec![ChatChoiceStream {
                     index: 0,
+                    #[allow(deprecated)] // TODO: Remove function_call when async_openai_alt updates
                     delta: ChatCompletionStreamResponseDelta {
                         role: Some(Role::Assistant),
                         content: Some("This is the first part of the response. ".to_string()),
-                        function_call: None,
-                        tool_calls: None,
+                        function_call: None,  // deprecated, но обязательное
+                        tool_calls: None,     // новое поле
                         refusal: None,
                     },
                     finish_reason: None,
@@ -128,11 +130,12 @@ impl ChatCompletionStream for FakeChatCompletionStream {
                 object: "chat.completion.chunk".to_owned(),
                 choices: vec![ChatChoiceStream {
                     index: 0,
+                    #[allow(deprecated)] // TODO: Remove function_call when async_openai_alt updates
                     delta: ChatCompletionStreamResponseDelta {
                         role: None,
                         content: Some("This is the second part of the response.".to_string()),
-                        function_call: None,
-                        tool_calls: None,
+                        function_call: None,  // deprecated, но обязательное
+                        tool_calls: None,     // новое поле
                         refusal: None,
                     },
                     finish_reason: Some(FinishReason::Stop),
