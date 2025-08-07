@@ -9,24 +9,37 @@ use crate::{AsSqliteDateTimeString, DbConn};
 
 #[derive(FromRow)]
 pub struct UserCompletionDAO {
+    #[allow(dead_code)] // Used for user analytics and reporting
     pub user_id: i64,
+    #[allow(dead_code)] // Unique identifier for completion tracking
     pub completion_id: String,
+    #[allow(dead_code)] // Used for language-specific statistics
     pub language: String,
 
+    #[allow(dead_code)] // Tracks number of times completion was viewed
     pub views: i64,
+    #[allow(dead_code)] // Tracks number of times completion was selected
     pub selects: i64,
+    #[allow(dead_code)] // Tracks number of times completion was dismissed
     pub dismisses: i64,
 
+    #[allow(dead_code)] // Timestamp for completion creation
     pub created_at: DateTime<Utc>,
+    #[allow(dead_code)] // Timestamp for last update
     pub updated_at: DateTime<Utc>,
 }
 
 #[derive(FromRow, Clone)]
 pub struct UserCompletionDailyStatsDAO {
+    #[allow(dead_code)] // Start time for daily statistics window
     pub start: DateTime<Utc>,
+    #[allow(dead_code)] // Programming language for statistics
     pub language: String,
+    #[allow(dead_code)] // Total number of completions
     pub completions: i32,
+    #[allow(dead_code)] // Total number of views
     pub views: i32,
+    #[allow(dead_code)] // Total number of selections
     pub selects: i32,
 }
 

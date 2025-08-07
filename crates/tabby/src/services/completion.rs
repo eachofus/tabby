@@ -585,7 +585,8 @@ mod tests {
 
     #[async_trait]
     impl CompletionStream for MockCompletionStream {
-        async fn generate(&self, _prompt: &str, _options: CompletionOptions) -> BoxStream<String> {
+        #[allow(elided_named_lifetimes)]
+        async fn generate(&self, _prompt: &'_ str, _options: CompletionOptions) -> BoxStream<String> {
             let s = stream! {
                 yield r#""Hello, world!""#.into();
             };
