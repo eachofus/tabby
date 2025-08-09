@@ -11,9 +11,9 @@ pub struct IndexReaderProvider {
 }
 
 impl IndexReaderProvider {
-    pub fn reader(
-        &self,
-    ) -> impl futures::Future<Output = tokio::sync::RwLockReadGuard<Option<IndexReader>>> {
+    pub fn reader<'a>(
+        &'a self,
+    ) -> impl futures::Future<Output = tokio::sync::RwLockReadGuard<'a, Option<IndexReader>>> {
         self.provider.read()
     }
 

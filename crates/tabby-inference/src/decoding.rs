@@ -33,7 +33,7 @@ impl StopConditionFactory {
         }
     }
 
-    pub fn create(&self, text: &str, language: Option<&'static Language>) -> StopCondition {
+    pub fn create<'a>(&'a self, text: &'a str, language: Option<&'static Language>) -> StopCondition<'a> {
         if let Some(language) = language {
             StopCondition::new(self.get_trie(language), text)
         } else {

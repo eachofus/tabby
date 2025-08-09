@@ -7,6 +7,7 @@ use sqlx::{prelude::FromRow, query};
 
 use crate::{AsSqliteDateTimeString, DbConn};
 
+#[allow(dead_code)] // Used by sqlx for database query results
 #[derive(FromRow)]
 pub struct UserCompletionDAO {
     #[allow(dead_code)] // Used for user analytics and reporting

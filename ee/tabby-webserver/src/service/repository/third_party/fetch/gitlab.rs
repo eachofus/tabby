@@ -12,6 +12,7 @@ pub struct GitlabRepository {
     pub http_url_to_repo: String,
 }
 
+#[allow(dead_code)] // Error handling for future GitLab API extensions
 #[derive(thiserror::Error, Debug)]
 pub enum GitlabError {
     #[error(transparent)]
