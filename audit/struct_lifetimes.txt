@@ -1,0 +1,11 @@
+./crates/tabby-git/src/grep/output.rs:pub struct GrepMatchSink<'output, 'a> {
+./crates/tabby-git/src/grep/output.rs:pub struct GrepNegativeMatchSink<'output> {
+./crates/tabby-inference/src/decoding.rs:pub struct StopCondition<'a> {
+./crates/tabby-index-cli/src/timer.rs:pub struct OpenTimer<'a> {
+./crates/tabby-common/src/terminal.rs:pub struct InfoMessage<'a> {
+./crates/tabby-common/src/usage.rs:struct Payload<'a, T> {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} # [derive (Clone)] pub struct Tokenizer < 'a > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} # [derive (Clone)] pub struct Tokenizer < 'a > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} # [derive (Clone)] pub struct Tokenizer < 'a > {
+./ee/tabby-webserver/src/service/auth/testutils.rs:pub struct FakeLdapClient<'a> {
+./ee/tabby-schema/src/schema/auth.rs:pub struct TokenAuthLdapInput<'a> {

@@ -62,14 +62,15 @@ impl ToIndexId for StructuredDoc {
 }
 
 #[async_trait]
-pub trait BuildStructuredDoc {
+pub trait BuildStructuredDoc<'content_chunks> {
     fn should_skip(&self) -> bool;
 
     async fn build_attributes(&self) -> serde_json::Value;
+    
     async fn build_chunk_attributes(
         &self,
         embedding: Arc<dyn Embedding>,
-    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>>;
+    ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>>;
 }
 
 pub enum StructuredDocFields {
@@ -82,7 +83,7 @@ pub enum StructuredDocFields {
 }
 
 #[async_trait]
-impl BuildStructuredDoc for StructuredDoc {
+impl<'content_chunks> BuildStructuredDoc<'content_chunks> for StructuredDoc {
     fn should_skip(&self) -> bool {
         match &self.fields {
             StructuredDocFields::Web(doc) => doc.should_skip(),
@@ -108,7 +109,7 @@ impl BuildStructuredDoc for StructuredDoc {
     async fn build_chunk_attributes(
         &self,
         embedding: Arc<dyn Embedding>,
-    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+    ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
         match &self.fields {
             StructuredDocFields::Web(doc) => doc.build_chunk_attributes(embedding).await,
             StructuredDocFields::Issue(doc) => doc.build_chunk_attributes(embedding).await,

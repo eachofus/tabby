@@ -28,7 +28,7 @@ pub struct PullDocument {
 }
 
 #[async_trait]
-impl BuildStructuredDoc for PullDocument {
+impl<'content_chunks> BuildStructuredDoc<'content_chunks> for PullDocument {
     fn should_skip(&self) -> bool {
         false
     }
@@ -47,7 +47,7 @@ impl BuildStructuredDoc for PullDocument {
     async fn build_chunk_attributes(
         &self,
         embedding: Arc<dyn Embedding>,
-    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+    ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
         // currently not indexing the diff
         let text = format!("{}\n\n{}", self.title, self.body);
         let s = stream! {

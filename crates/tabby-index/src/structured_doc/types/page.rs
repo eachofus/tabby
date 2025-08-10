@@ -19,7 +19,7 @@ pub struct PageDocument {
 }
 
 #[async_trait]
-impl BuildStructuredDoc for PageDocument {
+impl<'content_chunks> BuildStructuredDoc<'content_chunks> for PageDocument {
     fn should_skip(&self) -> bool {
         self.content.trim().is_empty()
     }
@@ -34,7 +34,7 @@ impl BuildStructuredDoc for PageDocument {
     async fn build_chunk_attributes(
         &self,
         embedding: Arc<dyn Embedding>,
-    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+    ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
         let content = format!("{}\n\n{}", self.title, self.content);
 
         let chunks: Vec<_> = TextSplitter::new(2048)

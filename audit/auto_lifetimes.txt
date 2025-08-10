@@ -1,0 +1,8 @@
+./crates/tabby-index/src/structured_doc/types.rs:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>>;
+./crates/tabby-index/src/structured_doc/types.rs:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+./crates/tabby-index/src/structured_doc/types/page.rs:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+./crates/tabby-index/src/structured_doc/types/commit.rs:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+./crates/tabby-index/src/structured_doc/types/pull.rs:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+./crates/tabby-index/src/structured_doc/types/web.rs:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+./crates/tabby-index/src/structured_doc/types/issue.rs:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+./crates/tabby-index/src/structured_doc/types/ingested.rs:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
