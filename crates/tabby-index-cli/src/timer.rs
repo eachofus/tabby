@@ -1,23 +1,21 @@
 use serde::Serialize;
-// ❌ Убираем deprecated import
-// use tantivy::time::Instant;
-
-// ✅ Добавляем правильные imports
 use std::time::Instant;
 
-pub struct OpenTimer<'a> {
+/// Timer that automatically records duration when dropped
+pub struct OpenTimer<'timer> {
     name: &'static str,
-    timer_tree: &'a mut TimerTree,
+    /// Reference to the timer tree that will receive the timing record
+    timer_tree: &'timer mut TimerTree,
     start: Instant,
     depth: u32,
 }
 
-impl OpenTimer<'_> {
+impl<'timer> OpenTimer<'timer> {
     /// Starts timing a new named subtask
     ///
     /// The timer is stopped automatically
     /// when the `OpenTimer` is dropped.
-    #[allow(dead_code)]  // ✅ Добавляем для подавления warning
+    #[allow(dead_code)]
     pub fn open(&mut self, name: &'static str) -> OpenTimer<'_> {
         OpenTimer {
             name,
@@ -32,7 +30,7 @@ impl Drop for OpenTimer<'_> {
     fn drop(&mut self) {
         self.timer_tree.timings.push(Timing {
             name: self.name,
-            // ✅ Изменяем метод получения времени
+            // Changing the method of getting the time
             duration: self.start.elapsed().as_micros() as i64,
             depth: self.depth,
         });

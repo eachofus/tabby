@@ -40,10 +40,13 @@ pub trait IndexAttributeBuilder<T>: Send + Sync {
     async fn build_attributes(&self, document: &T) -> serde_json::Value;
 
     /// Build chunk level attributes, these attributes are stored and indexed.
-    async fn build_chunk_attributes<'a>(
+    /// 
+    /// The 'content lifetime represents the lifetime of the document content
+    /// being processed into indexable chunks.
+    async fn build_chunk_attributes<'content>(
         &self,
-        document: &'a T,
-    ) -> BoxStream<'a, JoinHandle<Result<(Vec<String>, serde_json::Value)>>>;
+        document: &'content T,
+    ) -> BoxStream<'content, JoinHandle<Result<(Vec<String>, serde_json::Value)>>>;
 }
 
 pub struct TantivyDocBuilder<T> {
@@ -237,7 +240,7 @@ impl Indexer {
     }
 
     // `get_doc_kind` returns the kind of a structured_doc, and `None` for a code.
-    pub async fn get_doc_kind<'a>(&self, id: &str) -> Result<Option<String>> {
+    pub async fn get_doc_kind(&self, id: &str) -> Result<Option<String>> {
         let doc = self.get_doc(id).await?;
         let schema = IndexSchema::instance();
         Ok(get_json_text_optional(&doc, schema.field_attributes, KIND).map(|v| v.to_owned()))
@@ -476,7 +479,11 @@ impl IndexGarbageCollector {
     }
 }
 
-fn get_text(doc: &TantivyDocument, field: schema::Field) -> &str {
+/// Extracts text field from a Tantivy document
+/// 
+/// The 'document lifetime ensures the returned string reference
+/// lives as long as the source document.
+fn get_text<'document>(doc: &'document TantivyDocument, field: schema::Field) -> &'document str {
     doc.get_first(field).unwrap().as_str().unwrap()
 }
 
@@ -488,11 +495,11 @@ fn get_number_optional(doc: &TantivyDocument, field: schema::Field) -> Option<i6
     doc.get_first(field)?.as_i64()
 }
 
-fn get_json_field<'a>(
-    doc: &'a TantivyDocument,
+fn get_json_field<'document>(
+    doc: &'document TantivyDocument,
     field: schema::Field,
     name: &str,
-) -> CompactDocValue<'a> {
+) -> CompactDocValue<'document> {
     doc.get_first(field)
         .unwrap()
         .as_object()
@@ -506,11 +513,11 @@ fn get_json_date_field(doc: &TantivyDocument, field: schema::Field, name: &str) 
     get_json_field(doc, field, name).as_datetime().unwrap()
 }
 
-fn get_json_field_optional<'a>(
-    doc: &'a TantivyDocument,
+fn get_json_field_optional<'document>(
+    doc: &'document TantivyDocument,
     field: schema::Field,
     name: &str,
-) -> Option<CompactDocValue<'a>> {
+) -> Option<CompactDocValue<'document>> {
     Some(
         doc.get_first(field)?
             .as_object()?
@@ -519,10 +526,10 @@ fn get_json_field_optional<'a>(
     )
 }
 
-fn get_json_text_optional<'a>(
-    doc: &'a TantivyDocument,
+fn get_json_text_optional<'document>(
+    doc: &'document TantivyDocument,
     field: schema::Field,
     name: &str,
-) -> Option<&'a str> {
+) -> Option<&'document str> {
     get_json_field_optional(doc, field, name).map(|v| v.as_str().unwrap())
 }

@@ -51,17 +51,17 @@ impl GrepOutput {
         &self.path
     }
 
-    pub fn sink<'output, 'a>(
+    pub fn sink<'output, 'pattern>(
         &'output mut self,
-        matcher: &'a RegexMatcher,
-    ) -> GrepMatchSink<'output, 'a> {
+        matcher: &'pattern RegexMatcher,
+    ) -> GrepMatchSink<'output, 'pattern> {
         GrepMatchSink {
             output: self,
             matcher,
         }
     }
 
-    pub fn negative_sink(&mut self) -> GrepNegativeMatchSink<'_> {
+    pub fn negative_sink<'output>(&'output mut self) -> GrepNegativeMatchSink<'output> {
         GrepNegativeMatchSink { output: self }
     }
 
@@ -133,18 +133,18 @@ fn read_lines(content: &[u8]) -> anyhow::Result<Vec<GrepLine>> {
     Ok(lines)
 }
 
-pub struct GrepMatchSink<'output, 'a> {
+pub struct GrepMatchSink<'output, 'pattern> {
     output: &'output mut GrepOutput,
-    matcher: &'a RegexMatcher,
+    matcher: &'pattern RegexMatcher,
 }
 
-impl Sink for GrepMatchSink<'_, '_> {
+impl<'output, 'pattern> Sink for GrepMatchSink<'output, 'pattern> {
     type Error = std::io::Error;
 
-    fn matched(
+    fn matched<'grep_hit>(
         &mut self,
         _searcher: &grep::searcher::Searcher,
-        mat: &grep::searcher::SinkMatch<'_>,
+        mat: &grep::searcher::SinkMatch<'grep_hit>,
     ) -> Result<bool, Self::Error> {
         self.output.content_matched = true;
 
@@ -175,10 +175,10 @@ impl Sink for GrepMatchSink<'_, '_> {
         Ok(true)
     }
 
-    fn context(
+    fn context<'context_lines>(
         &mut self,
         _searcher: &grep::searcher::Searcher,
-        context: &grep::searcher::SinkContext<'_>,
+        context: &grep::searcher::SinkContext<'context_lines>,
     ) -> Result<bool, Self::Error> {
         let line = context.bytes();
 
@@ -201,13 +201,13 @@ pub struct GrepNegativeMatchSink<'output> {
     output: &'output mut GrepOutput,
 }
 
-impl Sink for GrepNegativeMatchSink<'_> {
+impl<'output> Sink for GrepNegativeMatchSink<'output> {
     type Error = std::io::Error;
 
-    fn matched(
+    fn matched<'grep_hit>(
         &mut self,
         _searcher: &grep::searcher::Searcher,
-        _mat: &grep::searcher::SinkMatch<'_>,
+        _mat: &grep::searcher::SinkMatch<'grep_hit>,
     ) -> Result<bool, Self::Error> {
         self.output.content_negated = true;
         Ok(false)

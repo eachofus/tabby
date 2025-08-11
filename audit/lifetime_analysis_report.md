@@ -1,20 +1,10 @@
-# Lifetime Analysis Report
+# Табби Lifetime Audit
 
-## audit/lifetime_analysis_report.md
-
-```sh
+```shell
 === TABBY LIFETIME AUDIT ===
-Дата: Sun Aug 10 02:59:51 MSK 2025
+Дата: Sun Aug 10 18:37:29 MSK 2025
 
 1. АВТОГЕНЕРИРОВАННЫЕ LIFETIMES ('life0, 'life1, etc.):
-./crates/tabby-index/src/structured_doc/types.rs:72:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>>;
-./crates/tabby-index/src/structured_doc/types.rs:111:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
-./crates/tabby-index/src/structured_doc/types/page.rs:37:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
-./crates/tabby-index/src/structured_doc/types/commit.rs:41:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
-./crates/tabby-index/src/structured_doc/types/pull.rs:50:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
-./crates/tabby-index/src/structured_doc/types/web.rs:37:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
-./crates/tabby-index/src/structured_doc/types/issue.rs:41:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
-./crates/tabby-index/src/structured_doc/types/ingested.rs:46:    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
 
 2. ЯВНЫЕ LIFETIMES ('a, 'b, etc.):
 ./crates/hash-ids/src/lib.rs:35:    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

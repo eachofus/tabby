@@ -22,14 +22,18 @@ impl HeaderFormat {
     }
 }
 
-pub struct InfoMessage<'a> {
-    header: &'a str,
+/// Message for displaying formatted information to users
+/// 
+/// The 'display lifetime represents the lifetime of the text data
+/// being formatted and displayed.
+pub struct InfoMessage<'display> {
+    header: &'display str,
     header_format: HeaderFormat,
-    lines: &'a [&'a str],
+    lines: &'display [&'display str],
 }
 
-impl<'a> InfoMessage<'a> {
-    pub fn new(header: &'a str, header_format: HeaderFormat, lines: &'a [&'a str]) -> Self {
+impl<'display> InfoMessage<'display> {
+    pub fn new(header: &'display str, header_format: HeaderFormat, lines: &'display [&'display str]) -> Self {
         Self {
             header,
             header_format,
@@ -47,14 +51,21 @@ impl<'a> InfoMessage<'a> {
     }
 }
 
-impl ToString for InfoMessage<'_> {
+impl<'display> ToString for InfoMessage<'display> {
     fn to_string(&self) -> String {
         let mut str = String::new();
         str.push_str(&format!("  {}\n\n", self.header_format.format(self.header)));
         for (i, line) in self.lines.iter().enumerate() {
             str.push_str("  ");
             str.push_str(line);
-            if i != self.lines.len() + 1 {
+            // TODO: REQUIRES CLARIFICATION!
+            // What result is expected:
+            // A) "line1\nline2\nline3" (without hyphenation at the end)
+            // B) "line1\nline2\nline3\n" (with hyphenation at the end)
+            //
+            // The current code contains an error: condition i != len + 1 is always true
+            // because self.lines.len() is always > 0
+            if i != self.lines.len() - 1 { // Temporary fix for case A
                 str.push('\n');
             }
         }
