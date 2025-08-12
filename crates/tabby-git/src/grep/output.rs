@@ -51,17 +51,17 @@ impl GrepOutput {
         &self.path
     }
 
-    pub fn sink<'output, 'pattern>(
-        &'output mut self,
+    pub fn sink<'sink, 'pattern>(
+        &'sink mut self,
         matcher: &'pattern RegexMatcher,
-    ) -> GrepMatchSink<'output, 'pattern> {
+    ) -> GrepMatchSink<'sink, 'pattern> {
         GrepMatchSink {
             output: self,
             matcher,
         }
     }
 
-    pub fn negative_sink<'output>(&'output mut self) -> GrepNegativeMatchSink<'output> {
+    pub fn negative_sink<'sink>(&'sink mut self) -> GrepNegativeMatchSink<'sink> {
         GrepNegativeMatchSink { output: self }
     }
 
@@ -133,12 +133,12 @@ fn read_lines(content: &[u8]) -> anyhow::Result<Vec<GrepLine>> {
     Ok(lines)
 }
 
-pub struct GrepMatchSink<'output, 'pattern> {
-    output: &'output mut GrepOutput,
+pub struct GrepMatchSink<'sink, 'pattern> {
+    output: &'sink mut GrepOutput,
     matcher: &'pattern RegexMatcher,
 }
 
-impl<'output, 'pattern> Sink for GrepMatchSink<'output, 'pattern> {
+impl<'sink, 'pattern> Sink for GrepMatchSink<'sink, 'pattern> {
     type Error = std::io::Error;
 
     fn matched<'grep_hit>(
@@ -197,11 +197,11 @@ impl<'output, 'pattern> Sink for GrepMatchSink<'output, 'pattern> {
     }
 }
 
-pub struct GrepNegativeMatchSink<'output> {
-    output: &'output mut GrepOutput,
+pub struct GrepNegativeMatchSink<'sink> {
+    output: &'sink mut GrepOutput,
 }
 
-impl<'output> Sink for GrepNegativeMatchSink<'output> {
+impl<'sink> Sink for GrepNegativeMatchSink<'sink> {
     type Error = std::io::Error;
 
     fn matched<'grep_hit>(
