@@ -3,10 +3,20 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use grep::{matcher::Matcher, regex::RegexMatcher, searcher::Sink};
+use grep::{
+    matcher::Matcher, 
+    regex::RegexMatcher, 
+    searcher::Sink
+};
+
 use tracing::debug;
 
-use super::{GrepFile, GrepLine, GrepSubMatch, GrepTextOrBase64};
+use super::{
+    GrepFile, 
+    GrepLine, 
+    GrepSubMatch, 
+    GrepTextOrBase64
+};
 
 pub struct GrepOutput {
     path: PathBuf,
