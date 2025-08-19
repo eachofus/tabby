@@ -1,0 +1,135 @@
+{
+  "documentation_standards": {
+    "philosophy": "Код должен быть самодокументируемым, а комментарии — добавлять контекст и объяснять 'зачем', а не 'что'",
+    
+    "comment_types": {
+      "section_comments": {
+        "format": "// === SECTION_NAME ===",
+        "purpose": "Разделение логических секций файла",
+        "required": true,
+        "example": "// === IMPORTS ==="
+      },
+      
+      "documentation_comments": {
+        "format": "///",
+        "purpose": "Публичная API документация",
+        "required_for": ["pub structs", "pub enums", "pub traits", "pub functions", "pub methods"],
+        "optional_for": ["private elements with complex logic"],
+        "structure": {
+          "summary": "Краткое описание (одна строка)",
+          "description": "Подробное описание назначения и использования",
+          "examples": "Примеры использования (при необходимости)",
+          "panics": "Условия паники (если применимо)",
+          "errors": "Возможные ошибки (если применимо)",
+          "safety": "Требования безопасности (для unsafe)"
+        }
+      },
+      
+      "inline_comments": {
+        "format": "//",
+        "purpose": "Объяснение сложной логики, неочевидных решений, временных решений",
+        "guidelines": [
+          "Объясняют 'зачем', а не 'что'",
+          "Используются для сложных алгоритмов",
+          "Поясняют бизнес-логику",
+          "Отмечают TODO, FIXME, HACK"
+        ]
+      },
+      
+      "block_comments": {
+        "format": "/* */",
+        "purpose": "Временное отключение кода, многострочные объяснения",
+        "usage": "Минимально, предпочтительно избегать"
+      }
+    },
+    
+    "documentation_templates": {
+      "struct_template": {
+        "example": "/// Конфигурация для HTTP клиента\n///\n/// Содержит настройки подключения, таймауты и параметры аутентификации.\n/// Используется для создания HTTP клиентов с единообразными настройками\n/// во всем приложении.\n///\n/// # Examples\n///\n/// ```rust\n/// let config = HttpConfig::new()\n///     .with_timeout(Duration::from_secs(30))\n///     .with_retries(3);\n/// ```\npub struct HttpConfig {"
+      },
+      
+      "function_template": {
+        "example": "/// Загружает файл по указанному URL\n///\n/// Выполняет HTTP GET запрос и сохраняет содержимое в указанный путь.\n/// Поддерживает автоматические повторы при временных сбоях.\n///\n/// # Arguments\n///\n/// * `url` - URL для загрузки\n/// * `path` - Путь для сохранения файла\n///\n/// # Returns\n///\n/// Возвращает размер загруженного файла в байтах.\n///\n/// # Errors\n///\n/// Возвращает `DownloadError` если:\n/// - URL недоступен\n/// - Нет прав на запись в указанный путь\n/// - Превышено количество попыток\npub fn download_file(url: &str, path: &Path) -> Result<u64, DownloadError> {"
+      },
+      
+      "error_enum_template": {
+        "example": "/// Ошибки операций загрузки файлов\n///\n/// Представляет все возможные ошибки, которые могут возникнуть\n/// при загрузке файлов через HTTP, включая сетевые проблемы,\n/// ошибки файловой системы и проблемы валидации.\n#[derive(Debug, thiserror::Error)]\npub enum DownloadError {"
+      }
+    },
+    
+    "language_requirements": {
+      "primary_language": "Russian",
+      "rationale": "Для русскоязычных команд документация на родном языке повышает понимание и скорость разработки",
+      "exceptions": [
+        "Технические термины могут оставаться на английском",
+        "API документация может дублироваться на английском для open-source проектов"
+      ]
+    },
+    
+    "quality_standards": {
+      "mandatory_documentation": [
+        "Все публичные типы данных",
+        "Все публичные функции и методы", 
+        "Все публичные трейты",
+        "Сложные алгоритмы (независимо от видимости)",
+        "Небезопасный код (unsafe)"
+      ],
+      
+      "documentation_review": {
+        "criteria": [
+          "Ясность и понятность",
+          "Актуальность (соответствие коду)",
+          "Полнота (все параметры и возвращаемые значения)",
+          "Примеры использования для сложных API",
+          "Описание ошибок и исключительных ситуаций"
+        ]
+      }
+    },
+    
+    "tools_integration": {
+      "rustdoc": {
+        "command": "cargo doc --open",
+        "configuration": "Настройка для генерации красивой документации"
+      },
+      
+      "ide_support": {
+        "vscode": "Rust Analyzer с поддержкой rustdoc",
+        "intellij": "IntelliJ Rust с документацией на hover"
+      },
+      
+      "ci_checks": [
+        {
+          "name": "doc_check",
+          "command": "cargo doc --no-deps",
+          "purpose": "Проверка корректности документации"
+        },
+        {
+          "name": "missing_docs",
+          "command": "cargo clippy -- -W missing_docs",
+          "purpose": "Предупреждения о недостающей документации"
+        }
+      ]
+    },
+    
+    "examples": {
+      "good_documentation": {
+        "description": "Пример хорошо документированного кода",
+        "code": "/// Менеджер загрузки файлов с поддержкой повторов\n///\n/// Обеспечивает надежную загрузку файлов через HTTP с автоматическими\n/// повторами при временных сбоях. Поддерживает валидацию контрольных сумм\n/// и прогресс-индикаторы.\n///\n/// # Examples\n///\n/// ```rust\n/// let downloader = DownloadManager::new()\n///     .with_retries(3)\n///     .with_timeout(Duration::from_secs(30));\n///\n/// let result = downloader.download(\n///     \"https://example.com/file.zip\",\n///     \"./downloads/file.zip\"\n/// ).await?;\n/// ```\npub struct DownloadManager {\n    /// Максимальное количество попыток загрузки\n    max_retries: u32,\n    /// Таймаут для каждой попытки\n    timeout: Duration,\n}"
+      },
+      
+      "comment_styles": {
+        "algorithm_explanation": {
+          "example": "// Используем экспоненциальную задержку для повторов\n// чтобы не перегружать сервер при временных сбоях\nlet delay = Duration::from_millis(100 * 2_u64.pow(attempt));"
+        },
+        
+        "business_logic": {
+          "example": "// Согласно требованиям безопасности, файлы больше 100MB\n// должны проходить дополнительную валидацию\nif file_size > MAX_FILE_SIZE {\n    self.validate_large_file(&path).await?;\n}"
+        },
+        
+        "temporary_solution": {
+          "example": "// TODO: Заменить на асинхронную реализацию после обновления до tokio 1.0\n// HACK: Временное решение для совместимости с legacy API\n// FIXME: Исправить race condition в многопоточном окружении"
+        }
+      }
+    }
+  }
+}
