@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::{
     collections::VecDeque,
     env::var,
@@ -15,13 +16,17 @@ use which::which;
 
 use crate::api_endpoint;
 
+// === STRUCTS ===
+/// Супервизор для управления процессом llama-server
 pub struct LlamaCppSupervisor {
     name: &'static str,
     port: u16,
     handle: JoinHandle<()>,
 }
 
+// === IMPLEMENTATIONS ===
 impl LlamaCppSupervisor {
+    /// Создает новый супервизор для llama-server
     pub fn new(
         name: &'static str,
         num_gpu_layers: u16,
@@ -170,10 +175,12 @@ impl LlamaCppSupervisor {
         Self { name, handle, port }
     }
 
+    /// Возвращает порт, на котором запущен сервер
     pub fn port(&self) -> u16 {
         self.port
     }
 
+    /// Ожидает запуска сервера и готовности к работе
     pub async fn start(&self) {
         debug!("Waiting for llama-server <{}> to start...", self.name);
         let client = reqwest::Client::builder().no_proxy().build().unwrap();
@@ -197,6 +204,14 @@ impl LlamaCppSupervisor {
     }
 }
 
+impl Drop for LlamaCppSupervisor {
+    fn drop(&mut self) {
+        self.handle.abort();
+    }
+}
+
+// === FREE FUNCTIONS ===
+/// Анализирует сообщение об ошибке и предлагает решение
 fn analyze_error_message(error_message: &str) -> Option<String> {
     if error_message.contains("cudaMalloc") {
         return Some(String::from(
@@ -221,6 +236,7 @@ fn analyze_error_message(error_message: &str) -> Option<String> {
     None
 }
 
+/// Находит имя исполняемого файла llama-server
 fn find_binary_name() -> Option<String> {
     let current_exe = std::env::current_exe().expect("Failed to get current executable path");
     let binary_dir = current_exe
@@ -244,18 +260,14 @@ fn find_binary_name() -> Option<String> {
         .or(binary_from_path)
 }
 
+/// Находит доступный порт в диапазоне 30888-40000
 fn get_available_port() -> u16 {
     (30888..40000)
         .find(|port| port_is_available(*port))
         .expect("Failed to find available port")
 }
 
+/// Проверяет, доступен ли указанный порт
 fn port_is_available(port: u16) -> bool {
     TcpListener::bind(("127.0.0.1", port)).is_ok()
-}
-
-impl Drop for LlamaCppSupervisor {
-    fn drop(&mut self) {
-        self.handle.abort();
-    }
 }

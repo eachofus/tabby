@@ -1,7 +1,9 @@
+// === IMPORTS ===
 use std::path::PathBuf;
 
 use tabby_common::config::{config_index_to_id, CodeRepository};
 
+// === FREE FUNCTIONS ===
 pub fn get_tabby_root() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("testdata");

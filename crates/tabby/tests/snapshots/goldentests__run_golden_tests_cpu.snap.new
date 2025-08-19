@@ -1,0 +1,11 @@
+---
+source: crates/tabby/tests/goldentests.rs
+assertion_line: 144
+expression: "golden_test(json!({\n    \"language\": \"python\", \"seed\": 0, \"segments\":\n    { \"prefix\": \"def is_prime(n):\\n\", }\n})).await"
+---
+choices:
+  - index: 0
+    text: ""
+debug_data: {}
+id: test-id
+mode: standard

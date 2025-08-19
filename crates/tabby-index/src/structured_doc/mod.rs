@@ -1,6 +1,8 @@
+// === MODULES ===
 pub mod public;
 mod types;
 
+// === IMPORTS ===
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -10,14 +12,17 @@ use serde_json::json;
 use tabby_common::index::{corpus, structured_doc};
 use tabby_inference::Embedding;
 use tokio::task::JoinHandle;
+
 use types::{BuildStructuredDoc, StructuredDoc};
 
 use crate::{indexer::TantivyDocBuilder, IndexAttributeBuilder};
 
+// === STRUCTS ===
 pub struct StructuredDocBuilder {
     embedding: Arc<dyn Embedding>,
 }
 
+// === IMPLEMENTATIONS ===
 impl StructuredDocBuilder {
     pub fn new(embedding: Arc<dyn Embedding>) -> Self {
         Self { embedding }
@@ -44,6 +49,7 @@ impl IndexAttributeBuilder<StructuredDoc> for StructuredDocBuilder {
     }
 }
 
+// === FREE FUNCTIONS ===
 fn create_structured_doc_builder(
     embedding: Arc<dyn Embedding>,
 ) -> TantivyDocBuilder<StructuredDoc> {

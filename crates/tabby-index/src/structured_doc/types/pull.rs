@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -11,6 +12,7 @@ use tokio::task::JoinHandle;
 
 use super::{build_tokens, BuildStructuredDoc};
 
+// === STRUCTS ===
 pub struct PullDocument {
     pub link: String,
     pub title: String,
@@ -27,8 +29,9 @@ pub struct PullDocument {
     pub merged: bool,
 }
 
+// === IMPLEMENTATIONS ===
 #[async_trait]
-impl BuildStructuredDoc for PullDocument {
+impl<'content_chunks> BuildStructuredDoc<'content_chunks> for PullDocument {
     fn should_skip(&self) -> bool {
         false
     }
@@ -47,7 +50,7 @@ impl BuildStructuredDoc for PullDocument {
     async fn build_chunk_attributes(
         &self,
         embedding: Arc<dyn Embedding>,
-    ) -> BoxStream<JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+    ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
         // currently not indexing the diff
         let text = format!("{}\n\n{}", self.title, self.body);
         let s = stream! {

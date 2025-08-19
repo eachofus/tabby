@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -12,6 +13,7 @@ use tokio::task::JoinHandle;
 
 use super::{build_tokens, BuildStructuredDoc};
 
+// === STRUCTS ===
 #[derive(Debug)]
 pub struct CommitDocument {
     pub sha: String,
@@ -20,8 +22,9 @@ pub struct CommitDocument {
     pub author_at: DateTime<Utc>,
 }
 
+// === IMPLEMENTATIONS ===
 #[async_trait]
-impl BuildStructuredDoc for CommitDocument {
+impl<'content_chunks> BuildStructuredDoc<'content_chunks> for CommitDocument {
     fn should_skip(&self) -> bool {
         false
     }
@@ -38,16 +41,18 @@ impl BuildStructuredDoc for CommitDocument {
     async fn build_chunk_attributes(
         &self,
         embedding: Arc<dyn Embedding>,
-    ) -> BoxStream<JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+    ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+        // Клонируем данные до создания stream
+        let embedding = embedding.clone();
+        let body = self.message.clone();
+        
         let s = stream! {
-                let embedding = embedding.clone();
-                let body = self.message.clone();
-                yield tokio::spawn(async move {
-                    match build_tokens(embedding.clone(), &body).await {
-                        Ok(tokens) => Ok((tokens, json!({}))),
-                        Err(err) => Err(err),
-                    }
-                });
+            yield tokio::spawn(async move {
+                match build_tokens(embedding.clone(), &body).await {
+                    Ok(tokens) => Ok((tokens, json!({}))),
+                    Err(err) => Err(err),
+                }
+            });
         };
 
         Box::pin(s)

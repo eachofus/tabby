@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::collections::HashSet;
 
 use anyhow::{bail, Result};
@@ -25,11 +26,29 @@ use tracing::{debug, warn};
 
 use crate::tantivy_utils::open_or_create_index;
 
+// === STRUCTS ===
 pub struct IndexId {
     pub source_id: String,
     pub id: String,
 }
 
+pub struct TantivyDocBuilder<T> {
+    corpus: &'static str,
+    builder: Box<dyn IndexAttributeBuilder<T>>,
+}
+
+pub struct Indexer {
+    corpus: String,
+    searcher: Searcher,
+    writer: IndexWriter,
+}
+
+pub struct IndexGarbageCollector {
+    searcher: Searcher,
+    writer: IndexWriter,
+}
+
+// === TRAITS ===
 pub trait ToIndexId {
     fn to_index_id(&self) -> IndexId;
 }
@@ -46,11 +65,7 @@ pub trait IndexAttributeBuilder<T>: Send + Sync {
     ) -> BoxStream<'a, JoinHandle<Result<(Vec<String>, serde_json::Value)>>>;
 }
 
-pub struct TantivyDocBuilder<T> {
-    corpus: &'static str,
-    builder: Box<dyn IndexAttributeBuilder<T>>,
-}
-
+// === IMPLEMENTATIONS ===
 impl<T: ToIndexId> TantivyDocBuilder<T> {
     pub fn new(corpus: &'static str, builder: impl IndexAttributeBuilder<T> + 'static) -> Self {
         Self {
@@ -187,12 +202,6 @@ impl<T: ToIndexId> TantivyDocBuilder<T> {
 
         doc
     }
-}
-
-pub struct Indexer {
-    corpus: String,
-    searcher: Searcher,
-    writer: IndexWriter,
 }
 
 impl Indexer {
@@ -402,11 +411,6 @@ impl Indexer {
     }
 }
 
-pub struct IndexGarbageCollector {
-    searcher: Searcher,
-    writer: IndexWriter,
-}
-
 impl IndexGarbageCollector {
     pub fn new() -> Self {
         let doc = IndexSchema::instance();
@@ -461,21 +465,22 @@ impl IndexGarbageCollector {
         Ok(())
     }
 
-    fn delete_by_source_id(&self, source_id: &str) {
-        let schema = IndexSchema::instance();
-        let _ = self
-            .writer
-            .delete_query(Box::new(schema.source_id_query(source_id)));
-    }
-
     pub fn commit(mut self) {
         self.writer.commit().expect("Failed to commit changes");
         self.writer
             .wait_merging_threads()
             .expect("Failed to wait for merging threads");
     }
+
+    fn delete_by_source_id(&self, source_id: &str) {
+        let schema = IndexSchema::instance();
+        let _ = self
+            .writer
+            .delete_query(Box::new(schema.source_id_query(source_id)));
+    }
 }
 
+// === FREE FUNCTIONS ===
 fn get_text(doc: &TantivyDocument, field: schema::Field) -> &str {
     doc.get_first(field).unwrap().as_str().unwrap()
 }

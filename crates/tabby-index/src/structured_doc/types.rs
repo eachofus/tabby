@@ -1,3 +1,4 @@
+// === MODULES ===
 pub mod commit;
 pub mod ingested;
 pub mod issue;
@@ -5,6 +6,7 @@ pub mod page;
 pub mod pull;
 pub mod web;
 
+// === IMPORTS ===
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
@@ -16,11 +18,7 @@ use tracing::warn;
 
 use crate::indexer::{IndexId, ToIndexId};
 
-pub struct StructuredDoc {
-    pub source_id: String,
-    pub fields: StructuredDocFields,
-}
-
+// === CONSTANTS ===
 pub const KIND_WEB: &str = "web";
 pub const KIND_ISSUE: &str = "issue";
 pub const KIND_PULL: &str = "pull";
@@ -28,6 +26,36 @@ pub const KIND_COMMIT: &str = "commit";
 pub const KIND_PAGE: &str = "page";
 pub const KIND_INGESTED: &str = "ingested";
 
+// === ENUMS ===
+pub enum StructuredDocFields {
+    Web(web::WebDocument),
+    Issue(issue::IssueDocument),
+    Pull(pull::PullDocument),
+    Commit(commit::CommitDocument),
+    Page(page::PageDocument),
+    Ingested(ingested::IngestedDocument),
+}
+
+// === STRUCTS ===
+pub struct StructuredDoc {
+    pub source_id: String,
+    pub fields: StructuredDocFields,
+}
+
+// === TRAITS ===
+#[async_trait]
+pub trait BuildStructuredDoc<'content_chunks> {
+    fn should_skip(&self) -> bool;
+
+    async fn build_attributes(&self) -> serde_json::Value;
+    
+    async fn build_chunk_attributes(
+        &self,
+        embedding: Arc<dyn Embedding>,
+    ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>>;
+}
+
+// === IMPLEMENTATIONS ===
 impl StructuredDoc {
     pub fn id(&self) -> &str {
         match &self.fields {
@@ -62,27 +90,7 @@ impl ToIndexId for StructuredDoc {
 }
 
 #[async_trait]
-pub trait BuildStructuredDoc {
-    fn should_skip(&self) -> bool;
-
-    async fn build_attributes(&self) -> serde_json::Value;
-    async fn build_chunk_attributes(
-        &self,
-        embedding: Arc<dyn Embedding>,
-    ) -> BoxStream<JoinHandle<Result<(Vec<String>, serde_json::Value)>>>;
-}
-
-pub enum StructuredDocFields {
-    Web(web::WebDocument),
-    Issue(issue::IssueDocument),
-    Pull(pull::PullDocument),
-    Commit(commit::CommitDocument),
-    Page(page::PageDocument),
-    Ingested(ingested::IngestedDocument),
-}
-
-#[async_trait]
-impl BuildStructuredDoc for StructuredDoc {
+impl<'content_chunks> BuildStructuredDoc<'content_chunks> for StructuredDoc {
     fn should_skip(&self) -> bool {
         match &self.fields {
             StructuredDocFields::Web(doc) => doc.should_skip(),
@@ -108,7 +116,7 @@ impl BuildStructuredDoc for StructuredDoc {
     async fn build_chunk_attributes(
         &self,
         embedding: Arc<dyn Embedding>,
-    ) -> BoxStream<JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+    ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
         match &self.fields {
             StructuredDocFields::Web(doc) => doc.build_chunk_attributes(embedding).await,
             StructuredDocFields::Issue(doc) => doc.build_chunk_attributes(embedding).await,
@@ -120,6 +128,7 @@ impl BuildStructuredDoc for StructuredDoc {
     }
 }
 
+// === FREE FUNCTIONS ===
 async fn build_tokens(embedding: Arc<dyn Embedding>, text: &str) -> Result<Vec<String>> {
     let embedding = match embedding.embed(text).await {
         Ok(embedding) => embedding,

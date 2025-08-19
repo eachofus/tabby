@@ -1,18 +1,16 @@
+// === IMPORTS ===
 use anyhow::Result;
-use gitlab::api::{projects::Projects, AsyncQuery, Pagination};
 use serde::Deserialize;
+
+use gitlab::api::{projects::Projects, AsyncQuery, Pagination};
 
 use super::RepositoryInfo;
 use crate::service::create_gitlab_client;
 
-#[derive(Deserialize)]
-pub struct GitlabRepository {
-    pub id: u128,
-    pub path_with_namespace: String,
-    pub http_url_to_repo: String,
-}
-
+// === ENUMS ===
+/// Error types that can occur during GitLab API operations
 #[derive(thiserror::Error, Debug)]
+#[allow(dead_code)] // Error enum defined for future error handling but not currently used
 pub enum GitlabError {
     #[error(transparent)]
     Rest(#[from] gitlab::api::ApiError<gitlab::RestError>),
@@ -20,6 +18,15 @@ pub enum GitlabError {
     Gitlab(#[from] gitlab::GitlabError),
     #[error(transparent)]
     Projects(#[from] gitlab::api::projects::ProjectsBuilderError),
+}
+
+// === STRUCTS ===
+/// GitLab repository representation from API response
+#[derive(Deserialize)]
+pub struct GitlabRepository {
+    pub id: u128,
+    pub path_with_namespace: String,
+    pub http_url_to_repo: String,
 }
 
 pub async fn fetch_all_gitlab_repos(

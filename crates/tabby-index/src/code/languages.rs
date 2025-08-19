@@ -1,17 +1,23 @@
+// === IMPORTS ===
 use std::collections::HashMap;
 
 use lazy_static::lazy_static;
 use tree_sitter_tags::TagsConfiguration;
 
-// Mark TagsConfiguration as thread sync / safe.
+// === STRUCTS ===
+/// Mark TagsConfiguration as thread sync / safe.
 pub(crate) struct TagsConfigurationSync(pub TagsConfiguration);
+
+// === IMPLEMENTATIONS ===
 unsafe impl Send for TagsConfigurationSync {}
 unsafe impl Sync for TagsConfigurationSync {}
 
+// === FREE FUNCTIONS ===
 pub fn get(language: &str) -> Option<&TagsConfigurationSync> {
     LANGUAGE_TAGS.get(language)
 }
 
+// === CONSTANTS ===
 lazy_static! {
     static ref LANGUAGE_TAGS: HashMap<&'static str, TagsConfigurationSync> = {
         HashMap::from([

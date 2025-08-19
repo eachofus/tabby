@@ -64,7 +64,7 @@ struct CompletionResponseChoice {
 
 #[async_trait]
 impl CompletionStream for OpenAICompletionEngine {
-    async fn generate(&self, prompt: &str, options: CompletionOptions) -> BoxStream<String> {
+    async fn generate<'a>(&'a self, prompt: &str, options: CompletionOptions) -> BoxStream<'a, String> {
         let (prompt, suffix) = if self.support_fim {
             split_fim_prompt(prompt)
         } else {

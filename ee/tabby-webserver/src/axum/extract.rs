@@ -1,15 +1,19 @@
 //! Types and traits for extracting data from [`Request`]s.
 
+// === IMPORTS ===
 use axum::{
     extract::FromRequestParts,
     http::{request::Parts, HeaderValue, StatusCode},
 };
 
+// === TYPE ALIASES ===
+pub type Rejection = (StatusCode, &'static str);
+
+// === STRUCTS ===
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct AuthBearer(pub Option<String>);
 
-pub type Rejection = (StatusCode, &'static str);
-
+// === IMPLEMENTATIONS ===
 impl<B> FromRequestParts<B> for AuthBearer
 where
     B: Send + Sync,
@@ -51,6 +55,7 @@ where
     }
 }
 
+// === FREE FUNCTIONS ===
 pub fn extract_bearer_token(authorization: &str) -> Option<String> {
     let split = authorization.split_once(' ');
     match split {

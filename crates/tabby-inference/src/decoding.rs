@@ -33,7 +33,7 @@ impl StopConditionFactory {
         }
     }
 
-    pub fn create(&self, text: &str, language: Option<&'static Language>) -> StopCondition {
+    pub fn create(&self, text: &str, language: Option<&'static Language>) -> StopCondition<'_> {
         if let Some(language) = language {
             StopCondition::new(self.get_trie(language), text)
         } else {
@@ -41,7 +41,7 @@ impl StopConditionFactory {
         }
     }
 
-    fn get_trie<'a>(&'a self, language: &'static Language) -> Option<CachedTrie<'a>> {
+    fn get_trie(&self, language: &'static Language) -> Option<CachedTrie<'_>> {
         let mut stop_words = language.get_stop_words();
         // append model stop words
         stop_words.extend(self.stop_words_from_model_config.iter().cloned());

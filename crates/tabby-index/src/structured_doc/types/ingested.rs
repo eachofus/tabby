@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -12,6 +13,7 @@ use tokio::task::JoinHandle;
 
 use super::{build_tokens, BuildStructuredDoc};
 
+// === STRUCTS ===
 pub struct IngestedDocument {
     // the link of the document is optional,
     // so we use source/doc_id as the unique identifier.
@@ -21,8 +23,9 @@ pub struct IngestedDocument {
     pub link: Option<String>,
 }
 
+// === IMPLEMENTATIONS ===
 #[async_trait]
-impl BuildStructuredDoc for IngestedDocument {
+impl<'content_chunks> BuildStructuredDoc<'content_chunks> for IngestedDocument {
     fn should_skip(&self) -> bool {
         self.body.trim().is_empty()
     }
@@ -43,7 +46,7 @@ impl BuildStructuredDoc for IngestedDocument {
     async fn build_chunk_attributes(
         &self,
         embedding: Arc<dyn Embedding>,
-    ) -> BoxStream<'life0, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+    ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
         let content = format!("{}\n\n{}", self.title, self.body);
 
         let chunks: Vec<_> = TextSplitter::new(2048)

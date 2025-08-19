@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::{
     marker::PhantomData,
     pin::Pin,
@@ -11,10 +12,27 @@ use tokio::net::TcpStream;
 use tokio_tungstenite as tt;
 use tokio_tungstenite::tungstenite as ts;
 
+// === TRAITS ===
+/// Trait for extracting binary data from WebSocket messages
 pub trait IntoData {
+    /// Extracts binary data from a message, returning None if not binary
     fn into_data(self) -> Option<Vec<u8>>;
 }
 
+// === STRUCTS ===
+/// Generic WebSocket transport wrapper for request/response communication
+#[pin_project]
+pub struct WebSocketTransport<Req, Resp, Message, Transport, Error>
+where
+    Message: IntoData + From<Vec<u8>>,
+    Transport: Stream<Item = Result<Message, Error>> + Sink<Message, Error = Error>,
+{
+    #[pin]
+    inner: Transport,
+    ghost: PhantomData<(Req, Resp)>,
+}
+
+// === IMPLEMENTATIONS ===
 impl IntoData for ws::Message {
     fn into_data(self) -> Option<Vec<u8>> {
         match self {
@@ -31,17 +49,6 @@ impl IntoData for ts::Message {
             _ => None,
         }
     }
-}
-
-#[pin_project]
-pub struct WebSocketTransport<Req, Resp, Message, Transport, Error>
-where
-    Message: IntoData + From<Vec<u8>>,
-    Transport: Stream<Item = Result<Message, Error>> + Sink<Message, Error = Error>,
-{
-    #[pin]
-    inner: Transport,
-    ghost: PhantomData<(Req, Resp)>,
 }
 
 impl<Req, Resp> From<ws::WebSocket>

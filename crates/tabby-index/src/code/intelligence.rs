@@ -1,14 +1,59 @@
+// === MODULES ===
 mod id;
+mod metrics {
+    use std::cmp::max;
 
+    pub struct Metrics {
+        pub max_line_length: usize,
+        pub avg_line_length: f32,
+        pub alphanum_fraction: f32,
+        pub number_fraction: f32,
+        pub num_lines: usize,
+    }
+
+    pub fn compute_metrics(content: &str) -> Metrics {
+        let mut metrics = Metrics {
+            max_line_length: 0,
+            avg_line_length: 0.0,
+            alphanum_fraction: 0.0,
+            number_fraction: 0.0,
+            num_lines: 0,
+        };
+        // Compute metrics in single loop.
+        for x in content.lines() {
+            metrics.num_lines += 1;
+            let line_length = x.len();
+            metrics.max_line_length = max(metrics.max_line_length, line_length);
+            metrics.avg_line_length += line_length as f32;
+            for c in x.chars() {
+                if c.is_alphanumeric() {
+                    metrics.alphanum_fraction += 1.0;
+                }
+                if c.is_numeric() {
+                    metrics.number_fraction += 1.0;
+                }
+            }
+        }
+
+        metrics.avg_line_length /= metrics.num_lines as f32;
+        metrics.alphanum_fraction /= content.len() as f32;
+        metrics.number_fraction /= content.len() as f32;
+
+        metrics
+    }
+}
+
+// === IMPORTS ===
 use std::{fs::read_to_string, path::Path};
 
 use async_stream::stream;
 use futures::Stream;
-use id::SourceFileId;
 use tabby_common::languages::get_language_by_ext;
 use text_splitter::{CodeSplitter, TextSplitter};
 use tracing::warn;
 use tree_sitter_tags::TagsContext;
+
+use id::SourceFileId;
 
 pub use super::types::{Point, SourceCode, Tag};
 use super::{
@@ -16,10 +61,13 @@ use super::{
     CodeRepository,
 };
 
-pub struct CodeIntelligence;
-
+// === CONSTANTS ===
 const CHUNK_SIZE: usize = 512;
 
+// === STRUCTS ===
+pub struct CodeIntelligence;
+
+// === IMPLEMENTATIONS ===
 impl CodeIntelligence {
     fn find_tags(language: &str, content: &str) -> Vec<Tag> {
         let config = languages::get(language);
@@ -185,6 +233,7 @@ impl CodeIntelligence {
     }
 }
 
+// === FREE FUNCTIONS ===
 fn line_number_from_byte_offset(
     s: &str,
     last_offset: usize,
@@ -207,49 +256,7 @@ fn line_number_from_byte_offset(
     line_number
 }
 
-mod metrics {
-    use std::cmp::max;
-
-    pub struct Metrics {
-        pub max_line_length: usize,
-        pub avg_line_length: f32,
-        pub alphanum_fraction: f32,
-        pub number_fraction: f32,
-        pub num_lines: usize,
-    }
-
-    pub fn compute_metrics(content: &str) -> Metrics {
-        let mut metrics = Metrics {
-            max_line_length: 0,
-            avg_line_length: 0.0,
-            alphanum_fraction: 0.0,
-            number_fraction: 0.0,
-            num_lines: 0,
-        };
-        // Compute metrics in single loop.
-        for x in content.lines() {
-            metrics.num_lines += 1;
-            let line_length = x.len();
-            metrics.max_line_length = max(metrics.max_line_length, line_length);
-            metrics.avg_line_length += line_length as f32;
-            for c in x.chars() {
-                if c.is_alphanumeric() {
-                    metrics.alphanum_fraction += 1.0;
-                }
-                if c.is_numeric() {
-                    metrics.number_fraction += 1.0;
-                }
-            }
-        }
-
-        metrics.avg_line_length /= metrics.num_lines as f32;
-        metrics.alphanum_fraction /= content.len() as f32;
-        metrics.number_fraction /= content.len() as f32;
-
-        metrics
-    }
-}
-
+// === TESTS ===
 #[cfg(test)]
 mod tests {
     use serial_test::file_serial;

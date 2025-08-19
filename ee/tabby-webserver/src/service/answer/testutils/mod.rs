@@ -1,7 +1,9 @@
+// === IMPORTS ===
 use std::sync::Arc;
 
+use anyhow;
 use async_openai_alt::{
-    error::OpenAIError,
+    error::{ApiError, OpenAIError},
     types::{
         ChatChoice, ChatChoiceStream, ChatCompletionResponseMessage, ChatCompletionResponseStream,
         ChatCompletionStreamResponseDelta, CompletionUsage, CreateChatCompletionRequest,
@@ -9,7 +11,9 @@ use async_openai_alt::{
     },
 };
 use async_trait::async_trait;
+use futures;
 use juniper::ID;
+
 use tabby_common::{
     api::{
         code::{
@@ -36,10 +40,28 @@ use tabby_schema::{
 
 use crate::{integration, job, repository};
 
+// === STRUCTS ===
+/// Fake implementation of ChatCompletionStream for testing purposes
 pub struct FakeChatCompletionStream {
     pub return_error: bool,
 }
 
+/// Fake implementation of CodeSearch that returns successful results
+pub struct FakeCodeSearch;
+
+/// Fake implementation of CodeSearch that returns NotReady error
+pub struct FakeCodeSearchFailNotReady;
+
+/// Fake implementation of CodeSearch that returns generic error
+pub struct FakeCodeSearchFail;
+
+/// Fake implementation of DocSearch for testing purposes
+pub struct FakeDocSearch;
+
+/// Fake implementation of ContextService for testing purposes
+pub struct FakeContextService;
+
+// === IMPLEMENTATIONS ===
 #[async_trait]
 impl ChatCompletionStream for FakeChatCompletionStream {
     async fn chat(
@@ -47,7 +69,7 @@ impl ChatCompletionStream for FakeChatCompletionStream {
         _request: CreateChatCompletionRequest,
     ) -> Result<CreateChatCompletionResponse, OpenAIError> {
         if self.return_error {
-            return Err(OpenAIError::ApiError(async_openai_alt::error::ApiError {
+            return Err(OpenAIError::ApiError(ApiError {
                 message: "error".to_string(),
                 code: None,
                 param: None,
@@ -62,16 +84,17 @@ impl ChatCompletionStream for FakeChatCompletionStream {
             object: "chat.completion".to_owned(),
             choices: vec![ChatChoice {
                 index: 0,
+                #[allow(deprecated)]
                 message: ChatCompletionResponseMessage {
                     role: Role::Assistant,
                     content: Some(
                         "1. What is the main functionality of the provided code?\n\
-                             2. How does the code snippet implement a web server?\n\
-                             3. Can you explain how the Flask app works in this context?"
+                         1. How does the code snippet implement a web server?\n\
+                         2. Can you explain how the Flask app works in this context?"
                             .to_string(),
                     ),
                     tool_calls: None,
-                    function_call: None,
+                    function_call: None, // Deprecated field, required for struct compatibility but should use tool_calls instead
                     refusal: None,
                 },
                 finish_reason: Some(FinishReason::Stop),
@@ -101,11 +124,12 @@ impl ChatCompletionStream for FakeChatCompletionStream {
                 object: "chat.completion.chunk".to_owned(),
                 choices: vec![ChatChoiceStream {
                     index: 0,
+                    #[allow(deprecated)]
                     delta: ChatCompletionStreamResponseDelta {
                         role: Some(Role::Assistant),
                         content: Some("This is the first part of the response. ".to_string()),
-                        function_call: None,
                         tool_calls: None,
+                        function_call: None, // Deprecated field, required for struct compatibility but should use tool_calls instead
                         refusal: None,
                     },
                     finish_reason: None,
@@ -128,11 +152,12 @@ impl ChatCompletionStream for FakeChatCompletionStream {
                 object: "chat.completion.chunk".to_owned(),
                 choices: vec![ChatChoiceStream {
                     index: 0,
+                    #[allow(deprecated)]
                     delta: ChatCompletionStreamResponseDelta {
                         role: None,
                         content: Some("This is the second part of the response.".to_string()),
-                        function_call: None,
                         tool_calls: None,
+                        function_call: None, // Deprecated field, required for struct compatibility but should use tool_calls instead
                         refusal: None,
                     },
                     finish_reason: Some(FinishReason::Stop),
@@ -153,7 +178,6 @@ impl ChatCompletionStream for FakeChatCompletionStream {
         Ok(Box::pin(stream) as ChatCompletionResponseStream)
     }
 }
-pub struct FakeCodeSearch;
 
 #[async_trait]
 impl CodeSearch for FakeCodeSearch {
@@ -203,7 +227,6 @@ impl CodeSearch for FakeCodeSearch {
     }
 }
 
-pub struct FakeCodeSearchFailNotReady;
 #[async_trait]
 impl CodeSearch for FakeCodeSearchFailNotReady {
     async fn search_in_language(
@@ -215,7 +238,6 @@ impl CodeSearch for FakeCodeSearchFailNotReady {
     }
 }
 
-pub struct FakeCodeSearchFail;
 #[async_trait]
 impl CodeSearch for FakeCodeSearchFail {
     async fn search_in_language(
@@ -227,7 +249,6 @@ impl CodeSearch for FakeCodeSearchFail {
     }
 }
 
-pub struct FakeDocSearch;
 #[async_trait]
 impl DocSearch for FakeDocSearch {
     async fn search(
@@ -282,7 +303,6 @@ impl DocSearch for FakeDocSearch {
     }
 }
 
-pub struct FakeContextService;
 #[async_trait]
 impl ContextService for FakeContextService {
     async fn read(&self, _policy: Option<&AccessPolicy>) -> Result<ContextInfo> {
@@ -290,6 +310,8 @@ impl ContextService for FakeContextService {
     }
 }
 
+// === FREE FUNCTIONS ===
+/// Create default answer configuration for testing
 pub fn make_answer_config() -> AnswerConfig {
     AnswerConfig {
         code_search_params: make_code_search_params(),
@@ -298,6 +320,7 @@ pub fn make_answer_config() -> AnswerConfig {
     }
 }
 
+/// Create default code search parameters for testing
 pub fn make_code_search_params() -> CodeSearchParams {
     CodeSearchParams {
         min_bm25_score: 0.5,
@@ -308,6 +331,7 @@ pub fn make_code_search_params() -> CodeSearchParams {
     }
 }
 
+/// Create repository service with all required dependencies for testing
 pub async fn make_repository_service(db: DbConn) -> Result<Arc<dyn RepositoryService>> {
     let job_service: Arc<dyn JobService> = Arc::new(job::create(db.clone()).await);
     let integration_service: Arc<dyn IntegrationService> =
@@ -318,6 +342,8 @@ pub async fn make_repository_service(db: DbConn) -> Result<Arc<dyn RepositorySer
         job_service.clone(),
     ))
 }
+
+/// Create access policy for testing
 pub async fn make_policy() -> AccessPolicy {
     AccessPolicy::new(
         DbConn::new_in_memory().await.unwrap(),

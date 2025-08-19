@@ -1,8 +1,10 @@
+// === IMPORTS ===
 use std::{fs, path::Path};
 
 use tantivy::{directory::MmapDirectory, schema::Schema, Index};
 use tracing::{debug, warn};
 
+// === FREE FUNCTIONS ===
 pub fn open_or_create_index(code: &Schema, path: &Path) -> (bool, Index) {
     let (recreated, index) = match open_or_create_index_impl(code, path) {
         Ok(index) => (false, index),

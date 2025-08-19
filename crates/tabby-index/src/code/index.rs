@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::{path::Path, pin::pin, sync::Arc};
 
 use anyhow::Result;
@@ -15,13 +16,14 @@ use super::{
 };
 use crate::indexer::{Indexer, TantivyDocBuilder};
 
-// Magic numbers
+// === CONSTANTS ===
 static MAX_LINE_LENGTH_THRESHOLD: usize = 300;
 static AVG_LINE_LENGTH_THRESHOLD: f32 = 150f32;
 static MIN_ALPHA_NUM_FRACTION: f32 = 0.25f32;
 static MAX_NUMBER_OF_LINES: usize = 100000;
 static MAX_NUMBER_FRACTION: f32 = 0.5f32;
 
+// === FREE FUNCTIONS ===
 pub async fn index_repository(
     embedding: Arc<dyn Embedding>,
     repository: &CodeRepository,
@@ -196,6 +198,7 @@ fn is_valid_file(file: &SourceCode) -> bool {
         && file.number_fraction <= MAX_NUMBER_FRACTION
 }
 
+// === TESTS ===
 #[cfg(test)]
 mod tests {
     use futures::StreamExt;

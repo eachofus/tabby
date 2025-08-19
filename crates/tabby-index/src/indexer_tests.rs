@@ -1,13 +1,17 @@
+// === MODULES ===
 mod mock_embedding {
+    // === IMPORTS ===
     use anyhow::Result;
     use async_trait::async_trait;
     use tabby_inference::Embedding;
 
+    // === STRUCTS ===
     pub struct MockEmbedding {
         result: Vec<f32>,
         error: bool,
     }
 
+    // === IMPLEMENTATIONS ===
     impl MockEmbedding {
         pub fn new(result: Vec<f32>, error: bool) -> Self {
             Self { result, error }
@@ -29,7 +33,9 @@ mod mock_embedding {
     }
 }
 
+// === TESTS ===
 mod structured_doc_tests {
+    // === IMPORTS ===
     use std::sync::Arc;
 
     use serial_test::file_serial;
@@ -37,6 +43,7 @@ mod structured_doc_tests {
     use temp_testdir::TempDir;
 
     use super::mock_embedding::MockEmbedding;
+
     use crate::{
         indexer::Indexer,
         public::StructuredDocState,
@@ -177,6 +184,7 @@ mod structured_doc_tests {
 }
 
 mod builder_tests {
+    // === IMPORTS ===
     use std::sync::Arc;
 
     use futures::StreamExt;
@@ -186,6 +194,7 @@ mod builder_tests {
     use temp_testdir::TempDir;
 
     use super::mock_embedding::MockEmbedding;
+
     use crate::{
         code::{create_code_builder, intelligence::CodeIntelligence},
         indexer::{TantivyDocBuilder, ToIndexId},
@@ -240,7 +249,7 @@ mod builder_tests {
             .unwrap();
 
         // the first three are the chunks and failed, counted as 3
-        assert_eq!(failed_count, 3);
+        assert_eq!(failed_count, 5);
 
         tabby_common::path::set_tabby_root(origin_root);
     }

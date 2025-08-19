@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -7,20 +8,22 @@ use sqlx::{prelude::FromRow, query};
 
 use crate::{AsSqliteDateTimeString, DbConn};
 
+// === STRUCTS ===
+/// Data Access Object for user completion records
 #[derive(FromRow)]
+#[allow(dead_code)] // Struct defined for future use but not currently used
 pub struct UserCompletionDAO {
     pub user_id: i64,
     pub completion_id: String,
     pub language: String,
-
     pub views: i64,
     pub selects: i64,
     pub dismisses: i64,
-
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
+/// Data Access Object for daily completion statistics
 #[derive(FromRow, Clone)]
 pub struct UserCompletionDailyStatsDAO {
     pub start: DateTime<Utc>,
@@ -30,7 +33,9 @@ pub struct UserCompletionDailyStatsDAO {
     pub selects: i32,
 }
 
+// === IMPLEMENTATIONS ===
 impl DbConn {
+    /// Creates a new user completion record
     pub async fn create_user_completion(
         &self,
         ts: u128,
@@ -55,6 +60,7 @@ impl DbConn {
         Ok(res.last_insert_rowid() as i32)
     }
 
+    /// Updates user completion statistics (views, selects, dismisses)
     pub async fn add_to_user_completion(
         &self,
         ts: u128,
@@ -73,6 +79,7 @@ impl DbConn {
         Ok(())
     }
 
+    /// Computes daily completion statistics for the past year with caching
     pub async fn compute_daily_stats_in_past_year(
         &self,
         users: Vec<i64>,
@@ -94,6 +101,7 @@ impl DbConn {
         self.compute_daily_stats_in_past_year_impl(users).await
     }
 
+    /// Internal implementation for computing daily stats in past year
     async fn compute_daily_stats_in_past_year_impl(
         &self,
         users: Vec<i64>,
@@ -123,6 +131,7 @@ impl DbConn {
         .await?)
     }
 
+    /// Computes daily completion statistics for a specified date range
     pub async fn compute_daily_stats(
         &self,
         start: DateTime<Utc>,
@@ -180,6 +189,7 @@ impl DbConn {
         Ok(res)
     }
 
+    /// Fetches one user completion record for testing purposes
     #[cfg(any(test, feature = "testutils"))]
     pub async fn fetch_one_user_completion(&self) -> Result<Option<UserCompletionDAO>> {
         Ok(

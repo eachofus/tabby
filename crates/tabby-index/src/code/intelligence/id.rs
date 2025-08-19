@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
@@ -5,12 +6,11 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
+
 use tabby_common::languages::get_language_by_ext;
 
-fn get_git_hash(path: &Path) -> Result<String> {
-    Ok(git2::Oid::hash_file(git2::ObjectType::Blob, path)?.to_string())
-}
-
+// === STRUCTS ===
+/// Уникальный идентификатор исходного файла с метаданными
 #[derive(Deserialize, Serialize, Debug)]
 pub struct SourceFileId {
     path: PathBuf,
@@ -18,7 +18,9 @@ pub struct SourceFileId {
     git_hash: String,
 }
 
+// === IMPLEMENTATIONS ===
 impl SourceFileId {
+    /// Возвращает путь к файлу
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -57,4 +59,10 @@ impl ToString for SourceFileId {
     fn to_string(&self) -> String {
         serde_json::to_string(&self).expect("Failed to serialize SourceFileKey")
     }
+}
+
+// === FREE FUNCTIONS ===
+/// Вычисляет Git хеш для файла
+fn get_git_hash(path: &Path) -> Result<String> {
+    Ok(git2::Oid::hash_file(git2::ObjectType::Blob, path)?.to_string())
 }

@@ -1,0 +1,253 @@
+{
+  "specification": {
+    "title": "Техническая спецификация организации Rust кода",
+    "version": "1.0",
+    "date": "2025-08-17",
+    "language": "ru",
+    
+    "general_principles": {
+      "purpose": "Обеспечить единообразную, читаемую и поддерживаемую структуру файлов в Rust проектах",
+      "scope": [
+        "Все .rs файлы в проекте",
+        "Библиотечный и прикладной код", 
+        "Тесты и примеры"
+      ]
+    },
+    
+    "file_structure": {
+      "mandatory_sections_order": [
+        {
+          "name": "MODULES",
+          "comment": "// === MODULES ===",
+          "description": "Объявления модулей и re-exports",
+          "order": 1
+        },
+        {
+          "name": "IMPORTS", 
+          "comment": "// === IMPORTS ===",
+          "description": "Use statements (внешние и внутренние)",
+          "order": 2
+        },
+        {
+          "name": "CONSTANTS",
+          "comment": "// === CONSTANTS ===", 
+          "description": "Константы и статические переменные",
+          "order": 3
+        },
+        {
+          "name": "TYPE_ALIASES",
+          "comment": "// === TYPE ALIASES ===",
+          "description": "Псевдонимы типов", 
+          "order": 4
+        },
+        {
+          "name": "MACROS",
+          "comment": "// === MACROS ===",
+          "description": "Определения макросов",
+          "order": 5
+        },
+        {
+          "name": "ENUMS",
+          "comment": "// === ENUMS ===",
+          "description": "Перечисления",
+          "order": 6
+        },
+        {
+          "name": "STRUCTS", 
+          "comment": "// === STRUCTS ===",
+          "description": "Структуры данных",
+          "order": 7
+        },
+        {
+          "name": "TRAITS",
+          "comment": "// === TRAITS ===", 
+          "description": "Определения трейтов",
+          "order": 8
+        },
+        {
+          "name": "IMPLEMENTATIONS",
+          "comment": "// === IMPLEMENTATIONS ===",
+          "description": "Реализации (inherent impl, затем trait impl)",
+          "order": 9
+        },
+        {
+          "name": "FREE_FUNCTIONS",
+          "comment": "// === FREE FUNCTIONS ===",
+          "description": "Свободные функции", 
+          "order": 10
+        },
+        {
+          "name": "TESTS",
+          "comment": "// === TESTS ===",
+          "description": "Модуль тестов",
+          "order": 11
+        }
+      ]
+    },
+    
+    "detailed_rules": {
+      "modules": {
+        "order": [
+          "pub mod declarations",
+          "private mod declarations", 
+          "re-exports"
+        ],
+        "sorting": "alphabetical within groups",
+        "spacing": "empty line between groups",
+        "example": "pub mod submodule1;\npub mod submodule2;\nmod private_module;\n\npub use submodule1::PublicType;"
+      },
+      
+      "imports": {
+        "grouping_order": [
+          "std library",
+          "external dependencies",
+          "internal crate modules",
+          "local imports (super/self)"
+        ],
+        "sorting": "alphabetical within groups",
+        "spacing": "empty line between groups",
+        "max_nesting": 3,
+        "example": "use std::collections::HashMap;\n\nuse anyhow::Result;\n\nuse crate::config::Config;"
+      },
+      
+      "constants": {
+        "order": [
+          "pub const",
+          "const", 
+          "static"
+        ],
+        "naming": "SCREAMING_SNAKE_CASE",
+        "grouping": "by visibility",
+        "example": "pub const DEFAULT_TIMEOUT: u64 = 30;\nconst INTERNAL_BUFFER_SIZE: usize = 1024;"
+      },
+      
+      "enums": {
+        "order": [
+          "public enums",
+          "private enums"
+        ],
+        "derive_placement": "separate line",
+        "naming": "PascalCase for enum and variants",
+        "example": "#[derive(Debug, Clone, PartialEq)]\npub enum Status {\n    Pending,\n    Running,\n    Completed,\n}"
+      },
+      
+      "structs": {
+        "order": [
+          "public structs",
+          "private structs"
+        ],
+        "field_order": [
+          "public fields",
+          "private fields"
+        ],
+        "documentation": "required for public elements",
+        "example": "#[derive(Debug, Clone)]\npub struct Config {\n    pub host: String,\n    timeout: Duration,\n}"
+      },
+      
+      "traits": {
+        "documentation": "required for public traits",
+        "associated_types": "before methods",
+        "default_implementations": "after required methods",
+        "example": "pub trait Processor {\n    type Output;\n    fn process(&self) -> Self::Output;\n    fn validate(&self) -> bool { true }\n}"
+      },
+      
+      "implementations": {
+        "order": [
+          "inherent implementations",
+          "trait implementations"
+        ],
+        "method_order": [
+          "public methods",
+          "private methods"
+        ],
+        "grouping": "by type",
+        "example": "impl Config {\n    pub fn new() -> Self { ... }\n}\n\nimpl Default for Config {\n    fn default() -> Self { ... }\n}"
+      }
+    },
+    
+    "additional_rules": {
+      "comments": {
+        "public_documentation": "///",
+        "regular_comments": "//", 
+        "section_comments": "// === SECTION_NAME ==="
+      },
+      
+      "formatting": {
+        "tool": "rustfmt with defaults",
+        "max_line_length": 100,
+        "indentation": "4 spaces"
+      },
+      
+      "naming_conventions": {
+        "variables_functions": "snake_case",
+        "types_traits": "PascalCase", 
+        "constants": "SCREAMING_SNAKE_CASE",
+        "unused_variables": "_prefix"
+      }
+    },
+    
+    "exceptions": {
+      "small_files": {
+        "condition": "< 50 lines",
+        "rule": "can omit section comments but keep order"
+      },
+      
+      "single_type_files": {
+        "condition": "one main type",
+        "rule": "can group related impl blocks near struct/enum"
+      },
+      
+      "test_files": {
+        "condition": "test-focused files",
+        "rule": "simplified structure focused on tests"
+      }
+    },
+    
+    "quality_control": {
+      "code_review_checklist": [
+        "structure compliance",
+        "correct import grouping",
+        "public element documentation"
+      ],
+      
+      "ci_cd_checks": [
+        {
+          "name": "formatting",
+          "command": "cargo fmt -- --check"
+        },
+        {
+          "name": "linting", 
+          "command": "cargo clippy -- -D warnings"
+        }
+      ]
+    },
+    
+    "tools": {
+      "automation": [
+        {
+          "name": "rustfmt",
+          "purpose": "auto-formatting"
+        },
+        {
+          "name": "clippy",
+          "purpose": "linting"
+        },
+        {
+          "name": "cargo-sort", 
+          "purpose": "dependency sorting"
+        }
+      ],
+      
+      "ide_settings": [
+        "auto-import grouping configuration",
+        "file templates with sections",
+        "code snippets for quick structure creation"
+      ]
+    },
+    
+    "example_file": {
+      "description": "Complete file structure example",
+      "code": "// === MODULES ===\npub mod config;\n\n// === IMPORTS ===\nuse std::time::Duration;\nuse anyhow::Result;\n\n// === CONSTANTS ===\npub const DEFAULT_TIMEOUT: u64 = 30;\n\n// === ENUMS ===\n#[derive(Debug)]\npub enum Status {\n    Active,\n    Inactive,\n}\n\n// === STRUCTS ===\npub struct Service {\n    config: Config,\n    status: Status,\n}\n\n// === TRAITS ===\npub trait Runnable {\n    fn run(&self) -> Result<()>;\n}\n\n// === IMPLEMENTATIONS ===\nimpl Service {\n    pub fn new(config: Config) -> Self {\n        Self {\n            config,\n            status: Status::Inactive,\n        }\n    }\n}\n\nimpl Runnable for Service {\n    fn run(&self) -> Result<()> {\n        Ok(())\n    }\n}\n\n// === FREE FUNCTIONS ===\npub fn create_default_service() -> Service {\n    Service::new(Config::default())\n}"
+    }
+  }
+}

@@ -1,24 +1,24 @@
 //! Responsible for scheduling all of the background jobs for tabby.
 //! Includes syncing respositories and updating indices.
 
+// === MODULES ===
 mod code;
 mod indexer;
-mod tantivy_utils;
-
-#[cfg(test)]
-mod testutils;
-
-use indexer::{IndexAttributeBuilder, Indexer};
-
 mod structured_doc;
+mod tantivy_utils;
 
 #[cfg(test)]
 mod indexer_tests;
 
+#[cfg(test)]
+mod testutils;
+
 pub mod public {
+    // === IMPORTS ===
+    use super::*;
     use indexer::IndexGarbageCollector;
 
-    use super::*;
+    // === RE-EXPORTS ===
     pub use super::{
         code::CodeIndexer,
         structured_doc::public::{
@@ -29,6 +29,7 @@ pub mod public {
         },
     };
 
+    // === FREE FUNCTIONS ===
     pub fn run_index_garbage_collection(active_sources: Vec<String>) -> anyhow::Result<()> {
         let index_garbage_collector = IndexGarbageCollector::new();
         index_garbage_collector.garbage_collect(&active_sources)?;
@@ -36,3 +37,6 @@ pub mod public {
         Ok(())
     }
 }
+
+// === IMPORTS ===
+use indexer::{IndexAttributeBuilder, Indexer};

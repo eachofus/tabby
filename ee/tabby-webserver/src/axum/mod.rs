@@ -1,14 +1,16 @@
+// === MODULES ===
 pub mod extract;
 pub mod websocket;
 
+// === IMPORTS ===
 use async_trait::async_trait;
+use futures::FutureExt;
+use juniper::{BoxFuture, Variables};
+
 use axum::{
     extract::{Extension, State, WebSocketUpgrade},
     response::Response,
 };
-use extract::{extract_bearer_token, AuthBearer};
-use futures::FutureExt;
-use juniper::{BoxFuture, Variables};
 use juniper_axum::{
     extract::JuniperRequest,
     response::JuniperResponse,
@@ -16,12 +18,19 @@ use juniper_axum::{
 };
 use juniper_graphql_ws::{ConnectionConfig, Schema};
 
+use extract::{extract_bearer_token, AuthBearer};
+
+// === TRAITS ===
+/// Trait for building context from authentication state
 #[async_trait]
 pub trait FromAuth<S> {
     async fn build(state: S, token: Option<String>) -> Self;
 }
 
-#[cfg_attr(text, axum::debug_handler)]
+// === FREE FUNCTIONS ===
+/// GraphQL query and mutation handler
+// TODO: Re-enable debug_handler after resolving generic trait complexity
+// #[cfg_attr(test, axum::debug_handler)]
 pub async fn graphql<S, C>(
     State(state): State<C>,
     Extension(schema): Extension<S>,
@@ -36,6 +45,7 @@ where
     JuniperResponse(req.execute(schema.root_node(), &ctx).await)
 }
 
+/// GraphQL subscription handler via WebSocket
 pub async fn subscriptions<S, C>(
     Extension(schema): Extension<S>,
     State(state): State<C>,

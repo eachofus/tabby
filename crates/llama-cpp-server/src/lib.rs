@@ -1,12 +1,18 @@
+// === MODULES ===
 mod supervisor;
 
+// === IMPORTS ===
 use std::{fs, path::PathBuf, sync::Arc};
 
 use anyhow::Result;
-use async_openai_alt::error::OpenAIError;
+use async_openai_alt::{
+    error::OpenAIError,
+    types::{ChatCompletionResponseStream, CreateChatCompletionRequest, CreateChatCompletionResponse},
+};
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 use serde::Deserialize;
+
 use supervisor::LlamaCppSupervisor;
 use tabby_common::{
     config::{HttpModelConfigBuilder, LocalModelConfig, ModelConfig, RateLimit, RateLimitBuilder},
@@ -14,17 +20,38 @@ use tabby_common::{
 };
 use tabby_inference::{ChatCompletionStream, CompletionOptions, CompletionStream, Embedding};
 
-fn api_endpoint(port: u16) -> String {
-    format!("http://127.0.0.1:{port}")
-}
-
+// === STRUCTS ===
+/// Сервер для обработки векторных представлений (embeddings)
 struct EmbeddingServer {
     #[allow(unused)]
     server: LlamaCppSupervisor,
     embedding: Arc<dyn Embedding>,
 }
 
+/// Сервер для автодополнения кода
+struct CompletionServer {
+    #[allow(unused)]
+    server: Arc<LlamaCppSupervisor>,
+    completion: Arc<dyn CompletionStream>,
+}
+
+/// Сервер для чат-взаимодействия
+struct ChatCompletionServer {
+    #[allow(unused)]
+    server: Arc<LlamaCppSupervisor>,
+    chat_completion: Arc<dyn ChatCompletionStream>,
+}
+
+/// Информация о шаблонах промптов для модели
+#[derive(Deserialize)]
+pub struct PromptInfo {
+    pub prompt_template: Option<String>,
+    pub chat_template: Option<String>,
+}
+
+// === IMPLEMENTATIONS ===
 impl EmbeddingServer {
+    /// Создает новый сервер для векторных представлений
     async fn new(
         num_gpu_layers: u16,
         model_path: &str,
@@ -65,13 +92,8 @@ impl Embedding for EmbeddingServer {
     }
 }
 
-struct CompletionServer {
-    #[allow(unused)]
-    server: Arc<LlamaCppSupervisor>,
-    completion: Arc<dyn CompletionStream>,
-}
-
 impl CompletionServer {
+    /// Создает новый сервер автодополнения
     async fn new(
         num_gpu_layers: u16,
         model_path: &str,
@@ -93,6 +115,7 @@ impl CompletionServer {
         Self::new_with_supervisor(Arc::new(server)).await
     }
 
+    /// Создает сервер с существующим супервизором
     async fn new_with_supervisor(server: Arc<LlamaCppSupervisor>) -> Self {
         let config = HttpModelConfigBuilder::default()
             .api_endpoint(Some(api_endpoint(server.port())))
@@ -107,18 +130,13 @@ impl CompletionServer {
 
 #[async_trait]
 impl CompletionStream for CompletionServer {
-    async fn generate(&self, prompt: &str, options: CompletionOptions) -> BoxStream<String> {
+    async fn generate<'a>(&'a self, prompt: &str, options: CompletionOptions) -> BoxStream<'a, String> {
         self.completion.generate(prompt, options).await
     }
 }
 
-struct ChatCompletionServer {
-    #[allow(unused)]
-    server: Arc<LlamaCppSupervisor>,
-    chat_completion: Arc<dyn ChatCompletionStream>,
-}
-
 impl ChatCompletionServer {
+    /// Создает новый чат-сервер
     async fn new(
         num_gpu_layers: u16,
         model_path: &str,
@@ -141,6 +159,7 @@ impl ChatCompletionServer {
         Self::new_with_supervisor(Arc::new(server)).await
     }
 
+    /// Создает чат-сервер с существующим супервизором
     async fn new_with_supervisor(server: Arc<LlamaCppSupervisor>) -> Self {
         let config = HttpModelConfigBuilder::default()
             .api_endpoint(Some(api_endpoint(server.port())))
@@ -161,19 +180,29 @@ impl ChatCompletionServer {
 impl ChatCompletionStream for ChatCompletionServer {
     async fn chat(
         &self,
-        request: async_openai_alt::types::CreateChatCompletionRequest,
-    ) -> Result<async_openai_alt::types::CreateChatCompletionResponse, OpenAIError> {
+        request: CreateChatCompletionRequest,
+    ) -> Result<CreateChatCompletionResponse, OpenAIError> {
         self.chat_completion.chat(request).await
     }
 
     async fn chat_stream(
         &self,
-        request: async_openai_alt::types::CreateChatCompletionRequest,
-    ) -> Result<async_openai_alt::types::ChatCompletionResponseStream, OpenAIError> {
+        request: CreateChatCompletionRequest,
+    ) -> Result<ChatCompletionResponseStream, OpenAIError> {
         self.chat_completion.chat_stream(request).await
     }
 }
 
+impl PromptInfo {
+    /// Читает информацию о промптах из файла
+    fn read(filepath: PathBuf) -> PromptInfo {
+        serdeconv::from_json_file(&filepath)
+            .unwrap_or_else(|_| panic!("Invalid metadata file: {}", filepath.display()))
+    }
+}
+
+// === FREE FUNCTIONS ===
+/// Создает чат-сервер на основе локальной конфигурации модели
 pub async fn create_chat_completion(config: &LocalModelConfig) -> Arc<dyn ChatCompletionStream> {
     let model_path = resolve_model_path(&config.model_id).await;
     let info = resolve_prompt_info(&config.model_id).await;
@@ -194,6 +223,7 @@ pub async fn create_chat_completion(config: &LocalModelConfig) -> Arc<dyn ChatCo
     )
 }
 
+/// Создает сервер автодополнения на основе локальной конфигурации
 pub async fn create_completion(
     config: &LocalModelConfig,
 ) -> (Arc<dyn CompletionStream>, PromptInfo) {
@@ -213,6 +243,7 @@ pub async fn create_completion(
     (stream, prompt_info)
 }
 
+/// Создает комбинированный сервер автодополнения и чата
 pub async fn create_completion_and_chat(
     completion_model: &LocalModelConfig,
     chat_model: &LocalModelConfig,
@@ -260,6 +291,7 @@ pub async fn create_completion_and_chat(
     (Arc::new(completion), prompt_info, Arc::new(chat))
 }
 
+/// Создает сервер векторных представлений на основе конфигурации
 pub async fn create_embedding(config: &ModelConfig) -> Arc<dyn Embedding> {
     match config {
         ModelConfig::Http(http) => http_api_bindings::create_embedding(http).await,
@@ -279,6 +311,28 @@ pub async fn create_embedding(config: &ModelConfig) -> Arc<dyn Embedding> {
     }
 }
 
+/// Возвращает точку входа модели, ищет файл с префиксом "00001-of-"
+pub fn get_model_entry_path(path: &PathBuf) -> Option<PathBuf> {
+    for entry in fs::read_dir(path).ok()? {
+        let entry = entry.expect("Error reading directory entry");
+        let file_name = entry.file_name();
+        let file_name_str = file_name.to_string_lossy();
+
+        // Check if the file name starts with the specified prefix
+        if file_name_str.starts_with(GGML_MODEL_PARTITIONED_PREFIX.as_str()) {
+            return Some(entry.path()); // Return the full path as PathBuf
+        }
+    }
+
+    None
+}
+
+/// Формирует API endpoint для локального сервера
+fn api_endpoint(port: u16) -> String {
+    format!("http://127.0.0.1:{port}")
+}
+
+/// Разрешает путь к модели по её идентификатору
 async fn resolve_model_path(model_id: &str) -> String {
     let path = PathBuf::from(model_id);
     let path = if path.exists() {
@@ -300,36 +354,7 @@ async fn resolve_model_path(model_id: &str) -> String {
     path.display().to_string()
 }
 
-// get_model_path returns the entrypoint of the model,
-// will look for the file with the prefix "00001-of-"
-pub fn get_model_entry_path(path: &PathBuf) -> Option<PathBuf> {
-    for entry in fs::read_dir(path).ok()? {
-        let entry = entry.expect("Error reading directory entry");
-        let file_name = entry.file_name();
-        let file_name_str = file_name.to_string_lossy();
-
-        // Check if the file name starts with the specified prefix
-        if file_name_str.starts_with(GGML_MODEL_PARTITIONED_PREFIX.as_str()) {
-            return Some(entry.path()); // Return the full path as PathBuf
-        }
-    }
-
-    None
-}
-
-#[derive(Deserialize)]
-pub struct PromptInfo {
-    pub prompt_template: Option<String>,
-    pub chat_template: Option<String>,
-}
-
-impl PromptInfo {
-    fn read(filepath: PathBuf) -> PromptInfo {
-        serdeconv::from_json_file(&filepath)
-            .unwrap_or_else(|_| panic!("Invalid metadata file: {}", filepath.display()))
-    }
-}
-
+/// Разрешает информацию о промптах для модели
 async fn resolve_prompt_info(model_id: &str) -> PromptInfo {
     let path = PathBuf::from(model_id);
     if path.exists() {
@@ -345,6 +370,7 @@ async fn resolve_prompt_info(model_id: &str) -> PromptInfo {
     }
 }
 
+/// Создает конфигурацию ограничения скорости запросов
 fn build_rate_limit_config() -> RateLimit {
     RateLimitBuilder::default()
         .request_per_minute(6000)

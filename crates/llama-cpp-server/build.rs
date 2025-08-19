@@ -1,8 +1,11 @@
+// === IMPORTS ===
 use std::{env, path::Path};
 
 use cmake::Config;
 use omnicopy_to_output::copy_to_output;
 
+// === FREE FUNCTIONS ===
+/// Основная функция сборки, конфигурирующая и компилирующая llama.cpp
 fn main() {
     if !cfg!(feature = "binary") || env::var("CI_COVERAGE").is_ok() {
         return;
@@ -70,6 +73,7 @@ fn main() {
     copy_to_output(&server_binary).expect("Failed to copy server binary to output directory");
 }
 
+/// Создает путь к выходному исполняемому файлу с учетом суффикса платформы
 fn make_output_binary(out: &Path, name: &str) -> String {
     out.join("bin").join(name).display().to_string() + env::consts::EXE_SUFFIX
 }

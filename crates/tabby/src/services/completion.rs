@@ -1,10 +1,15 @@
+// === MODULES ===
 mod completion_prompt;
 mod next_edit_prompt;
 
+// === IMPORTS ===
 use std::sync::Arc;
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
+use utoipa::ToSchema;
+
 use tabby_common::{
     api::{
         self,
@@ -19,17 +24,19 @@ use tabby_inference::{
     ChatCompletionStream, CodeGeneration, CodeGenerationOptions, CodeGenerationOptionsBuilder,
     CompletionStream,
 };
-use thiserror::Error;
-use utoipa::ToSchema;
 
 use super::model;
 
+// === ENUMS ===
+/// Errors that can occur during completion processing
 #[derive(Error, Debug)]
 pub enum CompletionError {
     #[error("empty prompt from completion request")]
     EmptyPrompt,
 }
 
+// === STRUCTS ===
+/// Request structure for code completion
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 #[schema(example=json!({
     "language": "python",
@@ -65,10 +72,6 @@ pub struct CompletionRequest {
     mode: String,
 }
 
-pub fn default_standard_mode() -> String {
-    "standard".to_string()
-}
-
 /// Contains information about edit history for next edit suggestion mode
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct EditHistory {
@@ -81,32 +84,7 @@ pub struct EditHistory {
     current_version: String,
 }
 
-impl CompletionRequest {
-    /// Returns the language info or "unknown" if not specified.
-    fn language_or_unknown(&self) -> String {
-        self.language.clone().unwrap_or("unknown".to_string())
-    }
-
-    /// Returns the raw prompt if specified.
-    fn raw_prompt(&self) -> Option<String> {
-        self.debug_options
-            .as_ref()
-            .and_then(|x| x.raw_prompt.clone())
-    }
-
-    /// Returns true if retrieval augmented code completion is disabled.
-    fn disable_retrieval_augmented_code_completion(&self) -> bool {
-        self.debug_options
-            .as_ref()
-            .is_some_and(|x| x.disable_retrieval_augmented_code_completion)
-    }
-
-    /// Returns true if the request is for next edit suggestion mode.
-    fn is_next_edit_suggestion_mode(&self) -> bool {
-        self.mode == "next_edit_suggestion"
-    }
-}
-
+/// Debug options for completion requests
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct DebugOptions {
     /// When `raw_prompt` is specified, it will be passed directly to the inference engine for completion. `segments` field in `CompletionRequest` will be ignored.
@@ -127,10 +105,7 @@ pub struct DebugOptions {
     disable_retrieval_augmented_code_completion: bool,
 }
 
-fn default_false() -> bool {
-    false
-}
-
+/// Code segments for completion context
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct Segments {
     /// Content that appears before the cursor in the editor window.
@@ -182,21 +157,6 @@ pub struct Segments {
     edit_history: Option<EditHistory>,
 }
 
-impl From<Segments> for api::event::Segments {
-    fn from(val: Segments) -> Self {
-        Self {
-            prefix: val.prefix,
-            suffix: val.suffix,
-            clipboard: val.clipboard,
-            git_url: val.git_url,
-            declarations: val
-                .declarations
-                .map(|x| x.into_iter().map(Into::into).collect()),
-            filepath: val.filepath,
-        }
-    }
-}
-
 /// A snippet of declaration code that is relevant to the current completion request.
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct Declaration {
@@ -211,27 +171,14 @@ pub struct Declaration {
     pub body: String,
 }
 
-impl From<Declaration> for api::event::Declaration {
-    fn from(val: Declaration) -> Self {
-        Self {
-            filepath: val.filepath,
-            body: val.body,
-        }
-    }
-}
-
+/// A completion choice returned by the model
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct Choice {
     index: u32,
     text: String,
 }
 
-impl Choice {
-    pub fn new(text: String) -> Self {
-        Self { index: 0, text }
-    }
-}
-
+/// A code snippet with relevance score
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug, PartialEq)]
 pub struct Snippet {
     filepath: String,
@@ -239,6 +186,7 @@ pub struct Snippet {
     score: f32,
 }
 
+/// Response structure for code completion
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 #[schema(example=json!({
     "id": "string",
@@ -255,22 +203,7 @@ pub struct CompletionResponse {
     mode: String,
 }
 
-impl CompletionResponse {
-    pub fn new(
-        id: String,
-        choices: Vec<Choice>,
-        debug_data: Option<DebugData>,
-        mode: String,
-    ) -> Self {
-        Self {
-            id,
-            choices,
-            debug_data,
-            mode,
-        }
-    }
-}
-
+/// Debug data included in completion responses when requested
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct DebugData {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -289,6 +222,79 @@ pub struct CompletionService {
     logger: Arc<dyn EventLogger>,
     prompt_builder: completion_prompt::PromptBuilder,
     next_edit_prompt_builder: next_edit_prompt::NextEditPromptBuilder,
+}
+
+// === IMPLEMENTATIONS ===
+impl CompletionRequest {
+    /// Returns the language info or "unknown" if not specified.
+    fn language_or_unknown(&self) -> String {
+        self.language.clone().unwrap_or("unknown".to_string())
+    }
+
+    /// Returns the raw prompt if specified.
+    fn raw_prompt(&self) -> Option<String> {
+        self.debug_options
+            .as_ref()
+            .and_then(|x| x.raw_prompt.clone())
+    }
+
+    /// Returns true if retrieval augmented code completion is disabled.
+    fn disable_retrieval_augmented_code_completion(&self) -> bool {
+        self.debug_options
+            .as_ref()
+            .is_some_and(|x| x.disable_retrieval_augmented_code_completion)
+    }
+
+    /// Returns true if the request is for next edit suggestion mode.
+    fn is_next_edit_suggestion_mode(&self) -> bool {
+        self.mode == "next_edit_suggestion"
+    }
+}
+
+impl From<Segments> for api::event::Segments {
+    fn from(val: Segments) -> Self {
+        Self {
+            prefix: val.prefix,
+            suffix: val.suffix,
+            clipboard: val.clipboard,
+            git_url: val.git_url,
+            declarations: val
+                .declarations
+                .map(|x| x.into_iter().map(Into::into).collect()),
+            filepath: val.filepath,
+        }
+    }
+}
+
+impl From<Declaration> for api::event::Declaration {
+    fn from(val: Declaration) -> Self {
+        Self {
+            filepath: val.filepath,
+            body: val.body,
+        }
+    }
+}
+
+impl Choice {
+    pub fn new(text: String) -> Self {
+        Self { index: 0, text }
+    }
+}
+
+impl CompletionResponse {
+    pub fn new(
+        id: String,
+        choices: Vec<Choice>,
+        debug_data: Option<DebugData>,
+        mode: String,
+    ) -> Self {
+        Self {
+            id,
+            choices,
+            debug_data,
+            mode,
+        }
+    }
 }
 
 impl CompletionService {
@@ -500,6 +506,18 @@ impl CompletionService {
     }
 }
 
+// === FREE FUNCTIONS ===
+/// Returns the default completion mode
+pub fn default_standard_mode() -> String {
+    "standard".to_string()
+}
+
+/// Returns false as default value for boolean options
+fn default_false() -> bool {
+    false
+}
+
+/// Checks if segments contain CRLF line endings
 fn contains_crlf(segments: &Segments) -> bool {
     if segments.prefix.contains("\r\n") {
         return true;
@@ -513,6 +531,7 @@ fn contains_crlf(segments: &Segments) -> bool {
     false
 }
 
+/// Overrides prompt line endings based on CRLF usage
 fn override_prompt(prompt: String, use_crlf: bool) -> String {
     if use_crlf {
         prompt.replace("\r\n", "\n")
@@ -535,6 +554,7 @@ fn override_generated_text(generated: String, use_crlf: bool) -> String {
     }
 }
 
+/// Creates completion service and chat components
 pub async fn create_completion_service_and_chat(
     config: &CompletionConfig,
     code: Arc<dyn CodeSearch>,
@@ -564,13 +584,19 @@ pub async fn create_completion_service_and_chat(
     (completion, completion_stream, chat)
 }
 
+// === TESTS ===
 #[cfg(test)]
 mod tests {
-    use api::code::CodeSearchParams;
+    use std::sync::Arc;
+
     use async_stream::stream;
     use async_trait::async_trait;
     use futures::stream::BoxStream;
-    use tabby_common::api::code::{CodeSearchError, CodeSearchQuery, CodeSearchResponse};
+
+    use tabby_common::api::{
+        code::{CodeSearchError, CodeSearchParams, CodeSearchQuery, CodeSearchResponse},
+        event,
+    };
     use tabby_inference::{CompletionOptions, CompletionStream};
 
     use super::*;
@@ -578,14 +604,14 @@ mod tests {
     struct MockEventLogger;
 
     impl EventLogger for MockEventLogger {
-        fn write(&self, _x: api::event::LogEntry) {}
+        fn write(&self, _x: event::LogEntry) {}
     }
 
     struct MockCompletionStream;
 
     #[async_trait]
     impl CompletionStream for MockCompletionStream {
-        async fn generate(&self, _prompt: &str, _options: CompletionOptions) -> BoxStream<String> {
+        async fn generate<'a>(&'a self, _prompt: &str, _options: CompletionOptions) -> BoxStream<'a, String> {
             let s = stream! {
                 yield r#""Hello, world!""#.into();
             };

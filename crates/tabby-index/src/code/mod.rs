@@ -1,3 +1,11 @@
+// === MODULES ===
+mod index;
+pub mod intelligence;
+mod languages;
+mod repository;
+mod types;
+
+// === IMPORTS ===
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
@@ -18,16 +26,15 @@ use crate::{
     code::intelligence::CodeIntelligence, indexer::TantivyDocBuilder, IndexAttributeBuilder,
 };
 
-//  Modules for creating code search index.
-mod index;
-pub mod intelligence;
-mod languages;
-mod repository;
-mod types;
-
+// === STRUCTS ===
 #[derive(Default)]
 pub struct CodeIndexer {}
 
+struct CodeBuilder {
+    embedding: Option<Arc<dyn Embedding>>,
+}
+
+// === IMPLEMENTATIONS ===
 impl CodeIndexer {
     pub async fn refresh(
         &mut self,
@@ -49,9 +56,6 @@ impl CodeIndexer {
     pub async fn garbage_collection(&mut self, repositories: &[CodeRepository]) {
         repository::garbage_collection(repositories);
     }
-}
-struct CodeBuilder {
-    embedding: Option<Arc<dyn Embedding>>,
 }
 
 impl CodeBuilder {
@@ -128,6 +132,7 @@ impl IndexAttributeBuilder<SourceCode> for CodeBuilder {
     }
 }
 
+// === FREE FUNCTIONS ===
 async fn build_binarize_embedding_tokens(
     embedding: Arc<dyn Embedding>,
     body: &str,

@@ -1,6 +1,9 @@
+// === MODULES ===
 mod metrics {
+    // === IMPORTS ===
     use std::cmp::max;
 
+    // === FREE FUNCTIONS ===
     pub fn max_line_length(content: &str) -> usize {
         content.lines().map(|x| x.len()).reduce(max).unwrap_or(0)
     }

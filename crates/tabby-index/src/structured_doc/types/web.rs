@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
@@ -12,14 +13,16 @@ use tokio::task::JoinHandle;
 
 use super::{build_tokens, BuildStructuredDoc};
 
+// === STRUCTS ===
 pub struct WebDocument {
     pub link: String,
     pub title: String,
     pub body: String,
 }
 
+// === IMPLEMENTATIONS ===
 #[async_trait]
-impl BuildStructuredDoc for WebDocument {
+impl<'content_chunks> BuildStructuredDoc<'content_chunks> for WebDocument {
     fn should_skip(&self) -> bool {
         self.body.trim().is_empty()
     }
@@ -34,7 +37,7 @@ impl BuildStructuredDoc for WebDocument {
     async fn build_chunk_attributes(
         &self,
         embedding: Arc<dyn Embedding>,
-    ) -> BoxStream<JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
+    ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
         let chunks: Vec<_> = TextSplitter::new(2048)
             .chunks(&self.body)
             .map(|x| x.to_owned())
@@ -76,6 +79,7 @@ impl BuildStructuredDoc for WebDocument {
     }
 }
 
+// === FREE FUNCTIONS ===
 pub fn merge_tokens(tokens: Vec<Vec<String>>) -> Vec<String> {
     let tokens = tokens.into_iter().flatten().collect::<HashSet<_>>();
     tokens.into_iter().collect()

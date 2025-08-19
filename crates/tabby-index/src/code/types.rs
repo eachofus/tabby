@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::{
     ops::Range,
     path::{Path, PathBuf},
@@ -7,6 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::indexer::{IndexId, ToIndexId};
 
+// === STRUCTS ===
+/// Представляет исходный код файла с метаданными для индексации
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SourceCode {
     pub source_file_id: String,
@@ -24,48 +27,14 @@ pub struct SourceCode {
     pub tags: Vec<Tag>,
 }
 
-impl ToIndexId for SourceCode {
-    fn to_index_id(&self) -> IndexId {
-        Self::to_index_id(&self.source_id, &self.source_file_id)
-    }
-}
-
-impl SourceCode {
-    pub fn read_content(&self) -> std::io::Result<String> {
-        let path = self.absolute_path();
-        std::fs::read_to_string(path)
-    }
-
-    pub fn absolute_path(&self) -> PathBuf {
-        Path::new(&self.basedir).join(&self.filepath)
-    }
-
-    pub fn source_file_id_from_id(id: &str) -> Option<&str> {
-        id.split(":::").nth(1)
-    }
-
-    pub fn to_index_id(source_id: &str, source_file_id: &str) -> IndexId {
-        IndexId {
-            source_id: source_id.to_owned(),
-            // Source file id might be duplicated across different source_ids, we prefix it with
-            // source_id to make it unique within corpus.
-            id: format!("{source_id}:::{source_file_id}"),
-        }
-    }
-}
-
+/// Представляет точку в исходном коде (строка, колонка)
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Point {
     pub row: usize,
     pub column: usize,
 }
 
-impl Point {
-    pub fn new(row: usize, column: usize) -> Self {
-        Self { row, column }
-    }
-}
-
+/// Представляет тег/символ в исходном коде с позиционной информацией
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Tag {
     pub range: Range<usize>,
@@ -77,4 +46,46 @@ pub struct Tag {
     pub docs: Option<String>,
     pub is_definition: bool,
     pub syntax_type_name: String,
+}
+
+// === IMPLEMENTATIONS ===
+impl ToIndexId for SourceCode {
+    fn to_index_id(&self) -> IndexId {
+        Self::to_index_id(&self.source_id, &self.source_file_id)
+    }
+}
+
+impl SourceCode {
+    /// Читает содержимое файла исходного кода
+    pub fn read_content(&self) -> std::io::Result<String> {
+        let path = self.absolute_path();
+        std::fs::read_to_string(path)
+    }
+
+    /// Возвращает абсолютный путь к файлу исходного кода
+    pub fn absolute_path(&self) -> PathBuf {
+        Path::new(&self.basedir).join(&self.filepath)
+    }
+
+    /// Извлекает source_file_id из составного идентификатора
+    pub fn source_file_id_from_id(id: &str) -> Option<&str> {
+        id.split(":::").nth(1)
+    }
+
+    /// Создает уникальный индексный идентификатор
+    pub fn to_index_id(source_id: &str, source_file_id: &str) -> IndexId {
+        IndexId {
+            source_id: source_id.to_owned(),
+            // Source file id might be duplicated across different source_ids, we prefix it with
+            // source_id to make it unique within corpus.
+            id: format!("{source_id}:::{source_file_id}"),
+        }
+    }
+}
+
+impl Point {
+    /// Создает новую точку с указанными координатами
+    pub fn new(row: usize, column: usize) -> Self {
+        Self { row, column }
+    }
 }

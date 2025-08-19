@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::{
     collections::HashSet,
     fs::{self},
@@ -11,13 +12,15 @@ use tracing::warn;
 
 use super::CodeRepository;
 
+// === TRAITS ===
 trait RepositoryExt {
     fn sync(&self) -> anyhow::Result<String>;
 }
 
+// === IMPLEMENTATIONS ===
 impl RepositoryExt for CodeRepository {
-    // sync clones the repository if it doesn't exist, otherwise it pulls the remote.
-    // and returns the git commit sha256.
+    /// sync clones the repository if it doesn't exist, otherwise it pulls the remote.
+    /// and returns the git commit sha256.
     fn sync(&self) -> anyhow::Result<String> {
         let dir = self.dir();
         let mut finished = false;
@@ -53,6 +56,7 @@ impl RepositoryExt for CodeRepository {
     }
 }
 
+// === FREE FUNCTIONS ===
 fn get_commit_sha(repository: &CodeRepository) -> anyhow::Result<String> {
     let repo = git2::Repository::open(repository.dir())?;
     let head = repo.head()?;

@@ -1,7 +1,10 @@
+// === IMPORTS ===
 use url_parse::core::Parser;
 
 use crate::netrc::netrc;
 
+// === STRUCTS ===
+/// Parsed address structure containing server, credentials, and path information
 #[derive(Debug)]
 pub struct ParsedAddress {
     pub server: String,
@@ -11,6 +14,7 @@ pub struct ParsedAddress {
     pub file: String,
 }
 
+// === IMPLEMENTATIONS ===
 impl PartialEq for ParsedAddress {
     fn eq(&self, other: &Self) -> bool {
         let result = self.server == other.server
@@ -19,7 +23,7 @@ impl PartialEq for ParsedAddress {
             && self.file == other.file;
 
         let mut paths_equal = true;
-        for it in self.path_segments.iter().zip(self.path_segments.iter()) {
+        for it in self.path_segments.iter().zip(other.path_segments.iter()) {
             let (left, right) = it;
             paths_equal = paths_equal && (left == right);
         }
@@ -29,6 +33,14 @@ impl PartialEq for ParsedAddress {
 }
 
 impl ParsedAddress {
+    /// Parses an address string into a ParsedAddress structure
+    /// 
+    /// # Arguments
+    /// * `address` - The URL address to parse
+    /// * `silent` - Whether to suppress output messages
+    /// 
+    /// # Returns
+    /// A ParsedAddress containing parsed components
     pub fn parse_address(address: &str, silent: bool) -> ParsedAddress {
         let netrc = netrc(silent);
         let url = Parser::new(None).parse(address).unwrap();
@@ -75,6 +87,16 @@ impl ParsedAddress {
         }
     }
 
+    /// Mixes credentials from netrc file with parsed URL credentials
+    /// 
+    /// # Arguments
+    /// * `netrc` - Optional netrc configuration
+    /// * `server` - Server address
+    /// * `username` - Username from URL
+    /// * `password` - Password from URL
+    /// 
+    /// # Returns
+    /// A tuple containing the final username and password
     fn mixin_netrc(
         netrc: &Option<netrc::Netrc>,
         server: &str,
@@ -102,147 +124,153 @@ impl ParsedAddress {
     }
 }
 
-#[tokio::test]
-async fn parseaddress_operator_equals_works_when_typical() {
-    let left = ParsedAddress {
-        server: "do.main".to_string(),
-        username: "user".to_string(),
-        password: "pass".to_string(),
-        path_segments: vec!["my".to_string(), "path".to_string()],
-        file: "pass".to_string(),
-    };
-    let right = ParsedAddress {
-        server: "do.main".to_string(),
-        username: "user".to_string(),
-        password: "pass".to_string(),
-        path_segments: vec!["my".to_string(), "path".to_string()],
-        file: "pass".to_string(),
-    };
+// === TESTS ===
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    assert!(left == right);
-}
+    #[tokio::test]
+    async fn parseaddress_operator_equals_works_when_typical() {
+        let left = ParsedAddress {
+            server: "do.main".to_string(),
+            username: "user".to_string(),
+            password: "pass".to_string(),
+            path_segments: vec!["my".to_string(), "path".to_string()],
+            file: "pass".to_string(),
+        };
+        let right = ParsedAddress {
+            server: "do.main".to_string(),
+            username: "user".to_string(),
+            password: "pass".to_string(),
+            path_segments: vec!["my".to_string(), "path".to_string()],
+            file: "pass".to_string(),
+        };
 
-#[tokio::test]
-async fn parseaddress_operator_equals_fails_when_not_equal() {
-    let left = ParsedAddress {
-        server: "do.main".to_string(),
-        username: "user".to_string(),
-        password: "pass".to_string(),
-        path_segments: vec!["my".to_string(), "path".to_string()],
-        file: "pass".to_string(),
-    };
-    let right = ParsedAddress {
-        server: "do".to_string(),
-        username: "user".to_string(),
-        password: "pass".to_string(),
-        path_segments: vec!["my".to_string(), "path".to_string()],
-        file: "pass".to_string(),
-    };
+        assert!(left == right);
+    }
 
-    assert!(left != right);
-}
+    #[tokio::test]
+    async fn parseaddress_operator_equals_fails_when_not_equal() {
+        let left = ParsedAddress {
+            server: "do.main".to_string(),
+            username: "user".to_string(),
+            password: "pass".to_string(),
+            path_segments: vec!["my".to_string(), "path".to_string()],
+            file: "pass".to_string(),
+        };
+        let right = ParsedAddress {
+            server: "do".to_string(),
+            username: "user".to_string(),
+            password: "pass".to_string(),
+            path_segments: vec!["my".to_string(), "path".to_string()],
+            file: "pass".to_string(),
+        };
 
-#[tokio::test]
-async fn parse_works() {
-    let expected = ParsedAddress {
-        server: "do.main:21".to_string(),
-        username: "user".to_string(),
-        password: "pass".to_string(),
-        path_segments: vec!["index".to_string()],
-        file: "file".to_string(),
-    };
+        assert!(left != right);
+    }
 
-    let actual = ParsedAddress::parse_address("ftp://user:pass@do.main:21/index/file", true);
+    #[tokio::test]
+    async fn parse_works() {
+        let expected = ParsedAddress {
+            server: "do.main:21".to_string(),
+            username: "user".to_string(),
+            password: "pass".to_string(),
+            path_segments: vec!["index".to_string()],
+            file: "file".to_string(),
+        };
 
-    assert_eq!(actual, expected);
-}
+        let actual = ParsedAddress::parse_address("ftp://user:pass@do.main:21/index/file", true);
 
-#[tokio::test]
-async fn mixin_works() {
-    let expected_username = "test";
-    let expected_password = "p@ssw0rd";
-    let input = "machine example.com login test password p@ssw0rd";
-    let input = std::io::BufReader::new(input.as_bytes());
-    let netrc = netrc::Netrc::parse(input).unwrap();
-    let username_decoded_from_url = "anonymous".to_string();
-    let password_decoded_from_url = "anonymous".to_string();
+        assert_eq!(actual, expected);
+    }
 
-    let (actual_username, actual_password) = ParsedAddress::mixin_netrc(
-        &Some(netrc),
-        "example.com",
-        username_decoded_from_url,
-        password_decoded_from_url,
-    );
+    #[tokio::test]
+    async fn mixin_works() {
+        let expected_username = "test";
+        let expected_password = "p@ssw0rd";
+        let input = "machine example.com login test password p@ssw0rd";
+        let input = std::io::BufReader::new(input.as_bytes());
+        let netrc = netrc::Netrc::parse(input).unwrap();
+        let username_decoded_from_url = "anonymous".to_string();
+        let password_decoded_from_url = "anonymous".to_string();
 
-    assert_eq!(actual_username, expected_username);
-    assert_eq!(actual_password, expected_password);
-}
+        let (actual_username, actual_password) = ParsedAddress::mixin_netrc(
+            &Some(netrc),
+            "example.com",
+            username_decoded_from_url,
+            password_decoded_from_url,
+        );
 
-#[tokio::test]
-async fn mixin_works_with_port() {
-    let expected_username = "test";
-    let expected_password = "p@ssw0rd";
-    let input = "machine example.com login test password p@ssw0rd port 443";
-    let input = std::io::BufReader::new(input.as_bytes());
-    let netrc = netrc::Netrc::parse(input).unwrap();
-    let username_decoded_from_url = "anonymous".to_string();
-    let password_decoded_from_url = "anonymous".to_string();
+        assert_eq!(actual_username, expected_username);
+        assert_eq!(actual_password, expected_password);
+    }
 
-    let (actual_username, actual_password) = ParsedAddress::mixin_netrc(
-        &Some(netrc),
-        "example.com:443",
-        username_decoded_from_url,
-        password_decoded_from_url,
-    );
+    #[tokio::test]
+    async fn mixin_works_with_port() {
+        let expected_username = "test";
+        let expected_password = "p@ssw0rd";
+        let input = "machine example.com login test password p@ssw0rd port 443";
+        let input = std::io::BufReader::new(input.as_bytes());
+        let netrc = netrc::Netrc::parse(input).unwrap();
+        let username_decoded_from_url = "anonymous".to_string();
+        let password_decoded_from_url = "anonymous".to_string();
 
-    assert_eq!(actual_username, expected_username);
-    assert_eq!(actual_password, expected_password);
-}
+        let (actual_username, actual_password) = ParsedAddress::mixin_netrc(
+            &Some(netrc),
+            "example.com:443",
+            username_decoded_from_url,
+            password_decoded_from_url,
+        );
 
-#[tokio::test]
-async fn parse_works_with_netrc_mixin() {
-    let expected = ParsedAddress {
-        server: "do.main:21".to_string(),
-        username: "test".to_string(),
-        password: "p@ssw0rd".to_string(),
-        path_segments: vec!["index".to_string()],
-        file: "file".to_string(),
-    };
-    let data = "machine do.main login test password p@ssw0rd port 21";
+        assert_eq!(actual_username, expected_username);
+        assert_eq!(actual_password, expected_password);
+    }
 
-    std::fs::write(".netrc.test", data).expect("Unable to write file");
-    let actual = ParsedAddress::parse_address("ftp://do.main/index/file", true);
+    #[tokio::test]
+    async fn parse_works_with_netrc_mixin() {
+        let expected = ParsedAddress {
+            server: "do.main:21".to_string(),
+            username: "test".to_string(),
+            password: "p@ssw0rd".to_string(),
+            path_segments: vec!["index".to_string()],
+            file: "file".to_string(),
+        };
+        let data = "machine do.main login test password p@ssw0rd port 21";
 
-    assert_eq!(actual, expected);
-    std::fs::remove_file(".netrc.test").unwrap();
-}
+        std::fs::write(".netrc.test", data).expect("Unable to write file");
+        let actual = ParsedAddress::parse_address("ftp://do.main/index/file", true);
 
-#[tokio::test]
-async fn parse_works_when_ssh_user() {
-    let expected = ParsedAddress {
-        server: "localhost:2223".to_string(),
-        username: "user".to_string(),
-        password: "anonymous".to_string(),
-        path_segments: vec!["".to_string()],
-        file: "file".to_string(),
-    };
+        assert_eq!(actual, expected);
+        std::fs::remove_file(".netrc.test").unwrap();
+    }
 
-    let actual = ParsedAddress::parse_address("ssh://user@localhost:2223/file", true);
+    #[tokio::test]
+    async fn parse_works_when_ssh_user() {
+        let expected = ParsedAddress {
+            server: "localhost:2223".to_string(),
+            username: "user".to_string(),
+            password: "anonymous".to_string(),
+            path_segments: vec!["".to_string()],
+            file: "file".to_string(),
+        };
 
-    assert_eq!(actual, expected);
-}
+        let actual = ParsedAddress::parse_address("ssh://user@localhost:2223/file", true);
 
-#[tokio::test]
-async fn parse_works_when_not_silent() {
-    let expected = ParsedAddress {
-        server: "localhost:2223".to_string(),
-        username: "user".to_string(),
-        password: "pass".to_string(),
-        path_segments: vec!["".to_string()],
-        file: "file".to_string(),
-    };
+        assert_eq!(actual, expected);
+    }
 
-    let actual = ParsedAddress::parse_address("ssh://user:pass@localhost:2223/file", false);
+    #[tokio::test]
+    async fn parse_works_when_not_silent() {
+        let expected = ParsedAddress {
+            server: "localhost:2223".to_string(),
+            username: "user".to_string(),
+            password: "pass".to_string(),
+            path_segments: vec!["".to_string()],
+            file: "file".to_string(),
+        };
 
-    assert_eq!(actual, expected);
+        let actual = ParsedAddress::parse_address("ssh://user:pass@localhost:2223/file", false);
+
+        assert_eq!(actual, expected);
+    }
 }

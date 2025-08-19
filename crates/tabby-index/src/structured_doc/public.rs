@@ -1,3 +1,4 @@
+// === IMPORTS ===
 use std::{future::Future, sync::Arc};
 
 use anyhow::Result;
@@ -17,9 +18,12 @@ pub use super::types::{
     web::WebDocument as StructuredDocWebFields, StructuredDoc, StructuredDocFields, KIND_COMMIT,
     KIND_INGESTED,
 };
+
 use super::{create_structured_doc_builder, types::BuildStructuredDoc};
+
 use crate::{indexer::TantivyDocBuilder, Indexer};
 
+// === STRUCTS ===
 /// StructuredDocState tracks the state of the document source.
 /// It helps determine whether the document should be updated or deleted.
 pub struct StructuredDocState {
@@ -43,6 +47,11 @@ pub struct StructuredDocIndexer {
     indexer: Indexer,
 }
 
+pub struct StructuredDocGarbageCollector {
+    indexer: Indexer,
+}
+
+// === IMPLEMENTATIONS ===
 impl StructuredDocIndexer {
     pub fn new(embedding: Arc<dyn Embedding>) -> Self {
         let builder = create_structured_doc_builder(embedding);
@@ -174,10 +183,6 @@ impl StructuredDocIndexer {
 
         false
     }
-}
-
-pub struct StructuredDocGarbageCollector {
-    indexer: Indexer,
 }
 
 impl Default for StructuredDocGarbageCollector {
