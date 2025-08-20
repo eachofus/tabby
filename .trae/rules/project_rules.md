@@ -14,33 +14,33 @@
 crates/tabby/                 # Главный исполняемый модуль
 crates/tabby-inference/       # Ядро системы инференса
 crates/tabby-common/          # Общие утилиты и типы
-ee/tabby-webserver/          # Веб-сервер (Enterprise Edition)
-ee/tabby-schema/             # Схемы данных
+ee/tabby-webserver/           # Веб-сервер (Enterprise Edition)
+ee/tabby-schema/              # Схемы данных
 ```
 
 ### 🔧 Системные модули (Tier 2)  
 
 ```sh
-crates/tabby-index/          # Индексация кода
-crates/tabby-crawler/        # Сканирование репозиториев
-crates/tabby-git/            # Интеграция с Git
-ee/tabby-db/                 # База данных
+crates/tabby-index/           # Индексация кода
+crates/tabby-crawler/         # Сканирование репозиториев
+crates/tabby-git/             # Интеграция с Git
+ee/tabby-db/                  # База данных
 ```
 
 ### 📡 Клиентские интерфейсы (Tier 3)
 
 ```sh
-clients/vscode/              # VS Code расширение
-clients/tabby-agent/         # Агент для IDE
-clients/tabby-chat-panel/    # Панель чата
+clients/vscode/               # VS Code расширение
+clients/tabby-agent/          # Агент для IDE
+clients/tabby-chat-panel/     # Панель чата
 ```
 
 ### 🛠️ Вспомогательные модули (Tier 4)
 
 ```sh
-crates/tabby-download/       # Загрузка моделей
-crates/hash-ids/             # Хеширование
-crates/http-api-bindings/    # HTTP API привязки
+crates/tabby-download/        # Загрузка моделей
+crates/hash-ids/              # Хеширование
+crates/http-api-bindings/     # HTTP API привязки
 ```
 
 ## Навигационные правила
