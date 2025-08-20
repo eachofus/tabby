@@ -14,17 +14,6 @@ use tokio::task::JoinHandle;
 use super::{build_tokens, BuildStructuredDoc};
 
 // === STRUCTS ===
-/// Документ веб-страницы для индексации
-///
-/// Представляет веб-страницу или документ с текстовым содержимым.
-/// Поддерживает разбиение на чанки для эффективной индексации больших документов.
-/// Используется для создания структурированных документов в поисковом индексе.
-///
-/// # Fields
-///
-/// * `link` - URL или путь к странице
-/// * `title` - Заголовок страницы
-/// * `content` - Текстовое содержимое страницы
 pub struct PageDocument {
     pub link: String,
     pub title: String,
@@ -35,7 +24,6 @@ pub struct PageDocument {
 #[async_trait]
 impl<'content_chunks> BuildStructuredDoc<'content_chunks> for PageDocument {
     fn should_skip(&self) -> bool {
-        // Пропускаем документы с пустым содержимым
         self.content.trim().is_empty()
     }
 
@@ -50,10 +38,8 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for PageDocument {
         &self,
         embedding: Arc<dyn Embedding>,
     ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
-        // Объединяем заголовок и содержимое для полного контекста
         let content = format!("{}\n\n{}", self.title, self.content);
 
-        // Разбиваем на чанки размером 2048 символов для оптимальной обработки
         let chunks: Vec<_> = TextSplitter::new(2048)
             .chunks(&content)
             .map(|x| x.to_owned())
@@ -69,8 +55,6 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for PageDocument {
                             return Err(anyhow::anyhow!("Failed to build tokens for chunk: {}", e));
                         }
                     };
-                    
-                    // Сохраняем содержимое чанка для последующего поиска
                     let chunk = json!({
                         fields::page::CHUNK_CONTENT: chunk_text,
                     });

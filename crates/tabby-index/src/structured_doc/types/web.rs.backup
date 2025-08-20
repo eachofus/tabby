@@ -14,17 +14,6 @@ use tokio::task::JoinHandle;
 use super::{build_tokens, BuildStructuredDoc};
 
 // === STRUCTS ===
-/// Веб-документ для индексации
-///
-/// Представляет веб-страницу или онлайн-документ с текстовым содержимым.
-/// Поддерживает разбиение на чанки и улучшенный поиск за счет объединения
-/// токенов заголовка с токенами каждого чанка содержимого.
-///
-/// # Fields
-///
-/// * `link` - URL веб-страницы
-/// * `title` - Заголовок страницы
-/// * `body` - Основное текстовое содержимое
 pub struct WebDocument {
     pub link: String,
     pub title: String,
@@ -35,7 +24,6 @@ pub struct WebDocument {
 #[async_trait]
 impl<'content_chunks> BuildStructuredDoc<'content_chunks> for WebDocument {
     fn should_skip(&self) -> bool {
-        // Пропускаем документы с пустым содержимым
         self.body.trim().is_empty()
     }
 
@@ -50,14 +38,11 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for WebDocument {
         &self,
         embedding: Arc<dyn Embedding>,
     ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
-        // Разбиваем содержимое на чанки размером 2048 символов
         let chunks: Vec<_> = TextSplitter::new(2048)
             .chunks(&self.body)
             .map(|x| x.to_owned())
             .collect();
 
-        // Предварительно создаем токены для заголовка, чтобы не повторять эту операцию
-        // для каждого чанка
         let title_embedding_tokens = match build_tokens(embedding.clone(), &self.title).await {
             Ok(tokens) => tokens,
             Err(e) => {
@@ -68,7 +53,6 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for WebDocument {
                 });
             }
         };
-        
         let s = stream! {
             for chunk_text in chunks {
                 let title_embedding_tokens = title_embedding_tokens.clone();
@@ -84,8 +68,7 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for WebDocument {
                         fields::web::CHUNK_TEXT: chunk_text,
                     });
 
-                    // Объединяем токены заголовка с токенами чанка для улучшения результатов поиска
-                    // Это позволяет находить чанки по контексту заголовка страницы
+                    // Title embedding tokens are merged with chunk embedding tokens to enhance the search results.
                     let tokens = merge_tokens(vec![title_embedding_tokens, chunk_embedding_tokens]);
                     Ok((tokens, chunk))
                 });
@@ -97,30 +80,7 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for WebDocument {
 }
 
 // === FREE FUNCTIONS ===
-/// Объединяет несколько векторов токенов в один уникальный набор
-///
-/// Принимает векторы токенов, объединяет их в один список и удаляет дубликаты.
-/// Используется для создания расширенного набора токенов, объединяющего
-/// контекст заголовка с содержимым чанка.
-///
-/// # Arguments
-///
-/// * `tokens` - Вектор векторов строковых токенов для объединения
-///
-/// # Returns
-///
-/// Возвращает вектор уникальных токенов без дубликатов
-///
-/// # Examples
-///
-/// ```rust
-/// let title_tokens = vec!["rust".to_string(), "programming".to_string()];
-/// let chunk_tokens = vec!["rust".to_string(), "tutorial".to_string()];
-/// let merged = merge_tokens(vec![title_tokens, chunk_tokens]);
-/// // Результат: ["rust", "programming", "tutorial"] (порядок может отличаться)
-/// ```
 pub fn merge_tokens(tokens: Vec<Vec<String>>) -> Vec<String> {
-    // Используем HashSet для автоматического удаления дубликатов
     let tokens = tokens.into_iter().flatten().collect::<HashSet<_>>();
     tokens.into_iter().collect()
 }

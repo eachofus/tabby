@@ -1,3 +1,4 @@
+
 // === MODULES ===
 mod completion_prompt;
 mod next_edit_prompt;
@@ -28,15 +29,40 @@ use tabby_inference::{
 use super::model;
 
 // === ENUMS ===
-/// Errors that can occur during completion processing
+/// Ошибки сервиса автодополнения кода
+///
+/// Представляет все возможные ошибки, которые могут возникнуть
+/// при обработке запросов на автодополнение кода.
 #[derive(Error, Debug)]
 pub enum CompletionError {
+    /// Пустой промпт в запросе на автодополнение
+    ///
+    /// Возникает когда не предоставлены ни raw_prompt, ни segments
     #[error("empty prompt from completion request")]
     EmptyPrompt,
 }
 
 // === STRUCTS ===
-/// Request structure for code completion
+/// Запрос на автодополнение кода
+///
+/// Содержит всю необходимую информацию для генерации автодополнения:
+/// контекст кода, настройки модели, отладочные опции и режим работы.
+/// Поддерживает как стандартное автодополнение, так и предсказание
+/// следующих правок пользователя.
+///
+/// # Examples
+///
+/// ```rust
+/// let request = CompletionRequest {
+///     language: Some("rust".to_string()),
+///     segments: Some(segments),
+///     user: Some("user123".to_string()),
+///     debug_options: None,
+///     temperature: Some(0.7),
+///     seed: None,
+///     mode: "standard".to_string(),
+/// };
+/// ```
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 #[schema(example=json!({
     "language": "python",
@@ -46,212 +72,354 @@ pub enum CompletionError {
     }
 }))]
 pub struct CompletionRequest {
-    /// Language identifier, full list is maintained at
+    /// Идентификатор языка программирования
+    ///
+    /// Полный список поддерживаемых языков доступен по адресу:
     /// https://code.visualstudio.com/docs/languages/identifiers
     #[schema(example = "python")]
     language: Option<String>,
 
-    /// When segments are set, the `prompt` is ignored during the inference.
+    /// Сегменты кода для автодополнения
+    ///
+    /// Когда указаны сегменты, поле `prompt` игнорируется при инференсе.
+    /// Содержит префикс, суффикс и дополнительный контекст для генерации.
     segments: Option<Segments>,
 
-    /// A unique identifier representing your end-user, which can help Tabby to monitor & generating
-    /// reports.
+    /// Уникальный идентификатор конечного пользователя
+    ///
+    /// Используется Tabby для мониторинга и генерации отчетов.
+    /// Помогает отслеживать использование и качество автодополнений.
     pub(crate) user: Option<String>,
 
+    /// Опции отладки для разработчиков
+    ///
+    /// Позволяют получить дополнительную информацию о процессе генерации,
+    /// включая промпты, сниппеты и отключение RAG.
     debug_options: Option<DebugOptions>,
 
-    /// The temperature parameter for the model, used to tune variance and "creativity" of the model output
+    /// Параметр температуры для модели
+    ///
+    /// Используется для настройки вариативности и "креативности" вывода модели.
+    /// Значения от 0.0 (детерминированный) до 1.0 (максимально случайный).
     temperature: Option<f32>,
 
-    /// The seed used for randomly selecting tokens
+    /// Seed для случайного выбора токенов
+    ///
+    /// Обеспечивает воспроизводимость результатов при одинаковых входных данных.
     seed: Option<u64>,
 
-    /// The mode for completion. Use 'standard' for normal code completions or 'next_edit_suggestion'
-    /// to predict the next edit the user will make.
+    /// Режим автодополнения
+    ///
+    /// - 'standard' - обычное автодополнение кода
+    /// - 'next_edit_suggestion' - предсказание следующей правки пользователя
     #[serde(default = "default_standard_mode")]
     mode: String,
 }
 
-/// Contains information about edit history for next edit suggestion mode
+/// Информация об истории правок для режима предсказания следующих правок
+///
+/// Содержит данные о предыдущих изменениях в файле для анализа
+/// паттернов редактирования и предсказания следующих действий пользователя.
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct EditHistory {
+    /// Оригинальный код до внесения изменений
     original_code: String,
 
-    /// Unified git-style diff of all edits made to the file
+    /// Унифицированный diff в стиле git всех внесенных правок
+    ///
+    /// Показывает все изменения, сделанные в файле с момента начала сессии.
     edits_diff: String,
 
-    /// Current version of the code after all edits
+    /// Текущая версия кода после всех правок
+    ///
+    /// Актуальное состояние файла на момент запроса предсказания.
     current_version: String,
 }
 
-/// Debug options for completion requests
+/// Опции отладки для разработчиков и тестирования
+///
+/// Предоставляют дополнительную информацию о процессе генерации
+/// автодополнений и позволяют настраивать поведение для тестирования.
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct DebugOptions {
-    /// When `raw_prompt` is specified, it will be passed directly to the inference engine for completion. `segments` field in `CompletionRequest` will be ignored.
+    /// Прямой промпт для модели, минуя обработку сегментов
     ///
-    /// This is useful for certain requests that aim to test the tabby's e2e quality.
+    /// Когда указан `raw_prompt`, он передается напрямую в движок инференса.
+    /// Поле `segments` в `CompletionRequest` игнорируется.
+    /// Полезно для тестирования качества модели end-to-end.
     raw_prompt: Option<String>,
 
-    /// When true, returns `snippets` in `debug_data`.
+    /// Возвращать сниппеты в отладочных данных
+    ///
+    /// Включает в ответ найденные релевантные сниппеты кода
+    /// для анализа качества поиска и RAG.
     #[serde(default = "default_false")]
     return_snippets: bool,
 
-    /// When true, returns `prompt` in `debug_data`.
+    /// Возвращать промпт в отладочных данных
+    ///
+    /// Включает в ответ финальный промпт, отправленный в модель,
+    /// для анализа и отладки процесса генерации.
     #[serde(default = "default_false")]
     return_prompt: bool,
 
-    /// When true, disable retrieval augmented code completion.
+    /// Отключить Retrieval Augmented Code Completion
+    ///
+    /// Когда true, автодополнение работает без поиска релевантных
+    /// сниппетов кода, используя только контекст из сегментов.
     #[serde(default = "default_false")]
     disable_retrieval_augmented_code_completion: bool,
 }
 
-/// Code segments for completion context
+/// Сегменты кода для контекстного автодополнения
+///
+/// Содержит всю информацию о текущем состоянии редактора:
+/// код до и после курсора, метаданные файла, релевантные сниппеты
+/// и дополнительный контекст для улучшения качества автодополнения.
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct Segments {
-    /// Content that appears before the cursor in the editor window.
+    /// Содержимое, которое появляется перед курсором в окне редактора
     prefix: String,
 
-    /// Content that appears after the cursor in the editor window.
+    /// Содержимое, которое появляется после курсора в окне редактора
     suffix: Option<String>,
 
-    /// The relative path of the file that is being edited.
-    /// - When [Segments::git_url] is set, this is the path of the file in the git repository.
-    /// - When [Segments::git_url] is empty, this is the path of the file in the workspace.
+    /// Относительный путь редактируемого файла
+    ///
+    /// - Когда установлен [Segments::git_url], это путь файла в git репозитории
+    /// - Когда [Segments::git_url] пуст, это путь файла в рабочем пространстве
     filepath: Option<String>,
 
-    /// The remote URL of the current git repository.
-    /// Leave this empty if the file is not in a git repository,
-    /// or the git repository does not have a remote URL.
+    /// Удаленный URL текущего git репозитория
+    ///
+    /// Оставьте пустым, если файл не находится в git репозитории
+    /// или репозиторий не имеет удаленного URL.
     git_url: Option<String>,
 
-    /// The relevant declaration code snippets provided by the editor's LSP,
-    /// contain declarations of symbols extracted from [Segments::prefix].
+    /// Релевантные сниппеты объявлений, предоставленные LSP редактора
+    ///
+    /// Содержат объявления символов, извлеченных из [Segments::prefix].
+    /// Помогают модели понять контекст используемых функций и типов.
     declarations: Option<Vec<Declaration>>,
 
-    /// The relevant code snippets extracted from recently edited files.
-    /// These snippets are selected from candidates found within code chunks
-    /// based on the edited location.
-    /// The current editing file is excluded from the search candidates.
+    /// Релевантные сниппеты кода из недавно измененных файлов
     ///
-    /// When provided alongside [Segments::declarations], the snippets have
-    /// already been deduplicated to ensure no duplication with entries
-    /// in [Segments::declarations].
+    /// Сниппеты выбираются из кандидатов, найденных в чанках кода
+    /// на основе места редактирования. Текущий редактируемый файл
+    /// исключается из поиска кандидатов.
     ///
-    /// Sorted in descending order of [Snippet::score].
+    /// При предоставлении вместе с [Segments::declarations] сниппеты
+    /// уже дедуплицированы для исключения дублирования.
+    ///
+    /// Отсортированы в порядке убывания [Snippet::score].
     relevant_snippets_from_changed_files: Option<Vec<Snippet>>,
 
-    /// The relevant code snippets extracted from recently opened files.
-    /// These snippets are selected from candidates found within code chunks
-    /// based on the last visited location.
+    /// Релевантные сниппеты кода из недавно открытых файлов
     ///
-    /// Current Active file is excluded from the search candidates.
-    /// When provided with [Segments::relevant_snippets_from_changed_files], the snippets have
-    /// already been deduplicated to ensure no duplication with entries
-    /// in [Segments::relevant_snippets_from_changed_files].
+    /// Сниппеты выбираются из кандидатов, найденных в чанках кода
+    /// на основе последнего посещенного места.
+    ///
+    /// Текущий активный файл исключается из поиска кандидатов.
+    /// При предоставлении с [Segments::relevant_snippets_from_changed_files]
+    /// сниппеты дедуплицированы.
     relevant_snippets_from_recently_opened_files: Option<Vec<Snippet>>,
 
-    /// Clipboard content when requesting code completion.
+    /// Содержимое буфера обмена при запросе автодополнения
+    ///
+    /// Может содержать релевантный код, скопированный пользователем,
+    /// который следует учесть при генерации автодополнения.
     clipboard: Option<String>,
 
-    /// Required when mode is 'next_edit_suggestion'. Contains information about edit history.
+    /// Обязательно для режима 'next_edit_suggestion'
+    ///
+    /// Содержит информацию об истории правок для анализа паттернов
+    /// и предсказания следующих действий пользователя.
     edit_history: Option<EditHistory>,
 }
 
-/// A snippet of declaration code that is relevant to the current completion request.
+/// Сниппет объявления кода, релевантный для текущего запроса автодополнения
+///
+/// Представляет объявление функции, класса, переменной или другого символа,
+/// который может быть полезен для понимания контекста автодополнения.
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct Declaration {
-    /// Filepath of the file where the snippet is from.
-    /// - When the file belongs to the same workspace as the current file,
-    ///   this is a relative filepath, use the same rule as [Segments::filepath].
-    /// - When the file located outside the workspace, such as in a dependency package,
-    ///   this is a file URI with an absolute filepath.
+    /// Путь к файлу, где находится сниппет
+    ///
+    /// - Когда файл принадлежит тому же рабочему пространству, что и текущий файл,
+    ///   это относительный путь, использующий то же правило, что и [Segments::filepath]
+    /// - Когда файл находится вне рабочего пространства, например в пакете зависимостей,
+    ///   это файловый URI с абсолютным путем
     pub filepath: String,
 
-    /// Body of the snippet.
+    /// Тело сниппета с кодом объявления
+    ///
+    /// Содержит полное объявление символа: сигнатуру функции,
+    /// определение класса, объявление переменной и т.д.
     pub body: String,
 }
 
-/// A completion choice returned by the model
+/// Вариант автодополнения с индексом и текстом
+///
+/// Представляет один из возможных вариантов автодополнения,
+/// сгенерированный моделью для данного контекста.
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct Choice {
+    /// Индекс варианта в списке (обычно 0 для единственного варианта)
     index: u32,
+    
+    /// Текст автодополнения для вставки в редактор
     text: String,
 }
 
-/// A code snippet with relevance score
+/// Релевантный сниппет кода с оценкой релевантности
+///
+/// Представляет фрагмент кода из кодовой базы, который может быть
+/// полезен для генерации автодополнения в текущем контексте.
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug, PartialEq)]
 pub struct Snippet {
+    /// Путь к файлу, содержащему сниппет
     filepath: String,
+    
+    /// Тело сниппета с кодом
     body: String,
+    
+    /// Оценка релевантности сниппета (чем выше, тем релевантнее)
     score: f32,
 }
 
-/// Response structure for code completion
+/// Ответ сервиса автодополнения
+///
+/// Содержит сгенерированные варианты автодополнения, уникальный
+/// идентификатор запроса и опциональные отладочные данные.
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 #[schema(example=json!({
     "id": "string",
     "choices": [ { "index": 0, "text": "string" } ]
 }))]
 pub struct CompletionResponse {
+    /// Уникальный идентификатор запроса автодополнения
     id: String,
+    
+    /// Список вариантов автодополнения
     choices: Vec<Choice>,
 
+    /// Отладочные данные (включаются только при соответствующих опциях)
     #[serde(skip_serializing_if = "Option::is_none")]
     debug_data: Option<DebugData>,
 
+    /// Режим автодополнения, использованный для генерации
     #[serde(default = "default_standard_mode")]
     mode: String,
 }
 
-/// Debug data included in completion responses when requested
+/// Отладочные данные для анализа процесса автодополнения
+///
+/// Содержит дополнительную информацию о том, как было сгенерировано
+/// автодополнение: использованные сниппеты и финальный промпт.
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct DebugData {
+    /// Сниппеты кода, использованные для RAG (если запрошены)
     #[serde(skip_serializing_if = "Option::is_none")]
     snippets: Option<Vec<Snippet>>,
 
+    /// Финальный промпт, отправленный в модель (если запрошен)
     #[serde(skip_serializing_if = "Option::is_none")]
     prompt: Option<String>,
 }
 
-/// CompletionService enhances the CodeGeneration feature by adding Retrieval Augmented Code Completion capability.
-/// It enables the retrieval of pertinent code snippets from the code repository,
-/// which are then utilized as prompts for the code generation model.
+/// Сервис автодополнения с поддержкой Retrieval Augmented Generation
+///
+/// Расширяет возможности генерации кода за счет поиска релевантных
+/// сниппетов из кодовой базы, которые затем используются как контекст
+/// для модели генерации кода. Поддерживает различные режимы работы
+/// и гибкую настройку параметров генерации.
+///
+/// # Architecture
+///
+/// Сервис состоит из нескольких компонентов:
+/// - Движок генерации кода (CodeGeneration)
+/// - Поисковый движок (CodeSearch) для RAG
+/// - Построители промптов для разных режимов
+/// - Система логирования событий
+///
+/// # Examples
+///
+/// ```rust
+/// let service = CompletionService::new(
+///     config,
+///     engine,
+///     code_search,
+///     logger,
+///     Some(prompt_template),
+/// );
+///
+/// let response = service.generate(
+///     &request,
+///     &allowed_repos,
+///     Some("VSCode/1.0"),
+/// ).await?;
+/// ```
 pub struct CompletionService {
+    /// Конфигурация сервиса автодополнения
     config: CompletionConfig,
+    
+    /// Движок генерации кода
     engine: Arc<CodeGeneration>,
+    
+    /// Система логирования событий для аналитики
     logger: Arc<dyn EventLogger>,
+    
+    /// Построитель промптов для стандартного режима
     prompt_builder: completion_prompt::PromptBuilder,
+    
+    /// Построитель промптов для режима предсказания правок
     next_edit_prompt_builder: next_edit_prompt::NextEditPromptBuilder,
 }
 
 // === IMPLEMENTATIONS ===
 impl CompletionRequest {
-    /// Returns the language info or "unknown" if not specified.
+    /// Возвращает язык программирования или "unknown" если не указан
+    ///
+    /// Используется для настройки специфичных для языка параметров
+    /// генерации и поиска релевантных сниппетов.
     fn language_or_unknown(&self) -> String {
         self.language.clone().unwrap_or("unknown".to_string())
     }
 
-    /// Returns the raw prompt if specified.
+    /// Возвращает сырой промпт если указан в отладочных опциях
+    ///
+    /// Когда установлен, обходит всю обработку сегментов и отправляет
+    /// промпт напрямую в модель для тестирования и отладки.
     fn raw_prompt(&self) -> Option<String> {
         self.debug_options
             .as_ref()
             .and_then(|x| x.raw_prompt.clone())
     }
 
-    /// Returns true if retrieval augmented code completion is disabled.
+    /// Проверяет, отключен ли Retrieval Augmented Code Completion
+    ///
+    /// Когда true, автодополнение работает без поиска релевантных
+    /// сниппетов, используя только предоставленный контекст.
     fn disable_retrieval_augmented_code_completion(&self) -> bool {
         self.debug_options
             .as_ref()
             .is_some_and(|x| x.disable_retrieval_augmented_code_completion)
     }
 
-    /// Returns true if the request is for next edit suggestion mode.
+    /// Проверяет, является ли запрос режимом предсказания следующих правок
+    ///
+    /// В этом режиме система анализирует историю правок пользователя
+    /// и предсказывает наиболее вероятные следующие изменения.
     fn is_next_edit_suggestion_mode(&self) -> bool {
         self.mode == "next_edit_suggestion"
     }
 }
 
 impl From<Segments> for api::event::Segments {
+    /// Преобразует сегменты запроса в формат для логирования событий
+    ///
+    /// Сохраняет основные поля и преобразует вложенные структуры
+    /// для единообразного логирования в системе аналитики.
     fn from(val: Segments) -> Self {
         Self {
             prefix: val.prefix,
@@ -267,6 +435,7 @@ impl From<Segments> for api::event::Segments {
 }
 
 impl From<Declaration> for api::event::Declaration {
+    /// Преобразует объявление в формат для логирования событий
     fn from(val: Declaration) -> Self {
         Self {
             filepath: val.filepath,
@@ -276,12 +445,25 @@ impl From<Declaration> for api::event::Declaration {
 }
 
 impl Choice {
+    /// Создает новый вариант автодополнения с индексом 0
+    ///
+    /// # Arguments
+    ///
+    /// * `text` - Текст автодополнения для вставки
     pub fn new(text: String) -> Self {
         Self { index: 0, text }
     }
 }
 
 impl CompletionResponse {
+    /// Создает новый ответ автодополнения
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Уникальный идентификатор запроса
+    /// * `choices` - Варианты автодополнения
+    /// * `debug_data` - Отладочные данные (опционально)
+    /// * `mode` - Режим автодополнения
     pub fn new(
         id: String,
         choices: Vec<Choice>,
@@ -298,6 +480,18 @@ impl CompletionResponse {
 }
 
 impl CompletionService {
+    /// Создает новый сервис автодополнения
+    ///
+    /// Инициализирует все компоненты сервиса: движок генерации,
+    /// построители промптов, систему логирования и поисковый движок.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Конфигурация сервиса
+    /// * `engine` - Движок генерации кода
+    /// * `code` - Поисковый движок для RAG
+    /// * `logger` - Система логирования событий
+    /// * `prompt_template` - Шаблон промпта для стандартного режима
     fn new(
         config: CompletionConfig,
         engine: Arc<CodeGeneration>,
@@ -318,6 +512,22 @@ impl CompletionService {
         }
     }
 
+    /// Собирает релевантные сниппеты кода для RAG
+    ///
+    /// Выполняет поиск по кодовой базе для нахождения фрагментов,
+    /// релевантных текущему контексту автодополнения. Учитывает
+    /// язык программирования и разрешенные репозитории.
+    ///
+    /// # Arguments
+    ///
+    /// * `language` - Язык программирования
+    /// * `segments` - Сегменты кода для анализа контекста
+    /// * `allowed_code_repository` - Разрешенные репозитории для поиска
+    /// * `disable_retrieval_augmented_code_completion` - Флаг отключения RAG
+    ///
+    /// # Returns
+    ///
+    /// Вектор релевантных сниппетов, отсортированных по релевантности
     async fn build_snippets(
         &self,
         language: &str,
@@ -334,6 +544,24 @@ impl CompletionService {
             .await
     }
 
+    /// Создает опции для генерации текста
+    ///
+    /// Настраивает параметры модели генерации на основе запроса:
+    /// температуру, seed, ограничения по длине и специфичные
+    /// для языка настройки.
+    ///
+    /// # Arguments
+    ///
+    /// * `language` - Язык программирования
+    /// * `temperature` - Параметр температуры модели
+    /// * `seed` - Seed для воспроизводимости
+    /// * `max_input_length` - Максимальная длина входа
+    /// * `max_output_tokens` - Максимальное количество выходных токенов
+    /// * `mode` - Режим генерации
+    ///
+    /// # Returns
+    ///
+    /// Настроенные опции генерации кода
     fn text_generation_options(
         language: &str,
         temperature: Option<f32>,
@@ -347,9 +575,13 @@ impl CompletionService {
             .max_input_length(max_input_length)
             .max_decoding_tokens(max_output_tokens as i32)
             .language(Some(get_language(language)));
+        
+        // Настраиваем температуру если указана
         temperature.inspect(|x| {
             builder.sampling_temperature(*x);
         });
+        
+        // Настраиваем seed если указан
         seed.inspect(|x| {
             builder.seed(*x);
         });
@@ -361,6 +593,26 @@ impl CompletionService {
             .expect("Failed to create text generation options")
     }
 
+    /// Генерирует автодополнение кода
+    ///
+    /// Основной метод сервиса, который обрабатывает запрос на автодополнение:
+    /// анализирует контекст, собирает релевантные сниппеты, строит промпт,
+    /// генерирует код и логирует результат.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - Запрос на автодополнение
+    /// * `allowed_code_repository` - Разрешенные репозитории
+    /// * `user_agent` - User agent клиента для аналитики
+    ///
+    /// # Returns
+    ///
+    /// Ответ с вариантами автодополнения и отладочными данными
+    ///
+    /// # Errors
+    ///
+    /// Возвращает `CompletionError::EmptyPrompt` если не предоставлен
+    /// ни raw_prompt, ни segments
     pub async fn generate(
         &self,
         request: &CompletionRequest,
@@ -370,6 +622,7 @@ impl CompletionService {
         let completion_id = format!("cmpl-{}", uuid::Uuid::new_v4());
         let language = request.language_or_unknown();
 
+        // Обрабатываем режим предсказания следующих правок отдельно
         if request.is_next_edit_suggestion_mode() {
             return self
                 .generate_next_edit_suggestion(request, completion_id, language, user_agent)
@@ -387,12 +640,15 @@ impl CompletionService {
 
         let mut use_crlf = false;
         let (prompt, segments, snippets) = if let Some(prompt) = request.raw_prompt() {
+            // Используем сырой промпт без обработки
             (prompt, None, vec![])
         } else if let Some(segments) = request.segments.as_ref() {
+            // Проверяем использование CRLF для корректной обработки переносов строк
             if contains_crlf(segments) {
                 use_crlf = true;
             }
 
+            // Собираем релевантные сниппеты для RAG
             let snippets = self
                 .build_snippets(
                     &language,
@@ -401,6 +657,8 @@ impl CompletionService {
                     request.disable_retrieval_augmented_code_completion(),
                 )
                 .await;
+            
+            // Строим финальный промпт с учетом сниппетов
             let prompt = self
                 .prompt_builder
                 .build(&language, segments.clone(), &snippets);
@@ -410,9 +668,11 @@ impl CompletionService {
             return Err(CompletionError::EmptyPrompt);
         };
 
+        // Генерируем код с учетом настроек переносов строк
         let generated_text =
             override_generated_text(self.engine.generate(&prompt, options).await, use_crlf);
-
+            
+        // Логируем событие для аналитики
         self.logger.log(
             request.user.clone(),
             Event::Completion {
@@ -428,6 +688,7 @@ impl CompletionService {
             },
         );
 
+        // Подготавливаем отладочные данные если запрошены
         let debug_data = request
             .debug_options
             .as_ref()
@@ -444,6 +705,27 @@ impl CompletionService {
         ))
     }
 
+    /// Генерирует предсказание следующей правки пользователя
+    ///
+    /// Специальный режим, который анализирует историю правок пользователя
+    /// и предсказывает наиболее вероятные следующие изменения в коде.
+    /// Использует увеличенный лимит токенов для более детального анализа.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - Запрос на автодополнение
+    /// * `completion_id` - Уникальный идентификатор запроса
+    /// * `language` - Язык программирования
+    /// * `user_agent` - User agent клиента
+    ///
+    /// # Returns
+    ///
+    /// Ответ с предсказанием следующей правки
+    ///
+    /// # Errors
+    ///
+    /// Возвращает `CompletionError::EmptyPrompt` если отсутствуют
+    /// segments или edit_history
     async fn generate_next_edit_suggestion(
         &self,
         request: &CompletionRequest,
@@ -461,26 +743,29 @@ impl CompletionService {
             .as_ref()
             .ok_or(CompletionError::EmptyPrompt)?;
 
+        // Строим специализированный промпт для анализа истории правок
         let prompt = self.next_edit_prompt_builder.build_prompt(edit_history);
 
+        // Используем увеличенный лимит токенов для более детального анализа
         let options = Self::text_generation_options(
             language.as_str(),
             request.temperature,
             request.seed,
             self.config.max_input_length,
-            self.config.max_decoding_tokens * 2,
+            self.config.max_decoding_tokens * 2, // Удваиваем лимит для анализа правок
             request.mode.clone(),
         );
 
         let generated_text = self.engine.generate(&prompt, options).await;
 
+        // Логируем событие предсказания правки
         self.logger.log(
             request.user.clone(),
             Event::Completion {
                 completion_id: completion_id.clone(),
                 language,
                 prompt: prompt.clone(),
-                segments: None,
+                segments: None, // Не логируем segments для режима правок
                 choices: vec![api::event::Choice {
                     index: 0,
                     text: generated_text.clone(),
@@ -493,7 +778,7 @@ impl CompletionService {
             .debug_options
             .as_ref()
             .map(|debug_options| DebugData {
-                snippets: None,
+                snippets: None, // Сниппеты не используются в режиме правок
                 prompt: debug_options.return_prompt.then_some(prompt),
             });
 
@@ -507,17 +792,32 @@ impl CompletionService {
 }
 
 // === FREE FUNCTIONS ===
-/// Returns the default completion mode
+/// Возвращает стандартный режим автодополнения по умолчанию
+///
+/// Используется как значение по умолчанию для поля mode в serde.
 pub fn default_standard_mode() -> String {
     "standard".to_string()
 }
 
-/// Returns false as default value for boolean options
+/// Возвращает false как значение по умолчанию
+///
+/// Используется для булевых полей в отладочных опциях.
 fn default_false() -> bool {
     false
 }
 
-/// Checks if segments contain CRLF line endings
+/// Проверяет наличие CRLF переносов строк в сегментах
+///
+/// Анализирует prefix и suffix на предмет использования Windows-стиля
+/// переносов строк (\r\n) для корректной обработки генерируемого текста.
+///
+/// # Arguments
+///
+/// * `segments` - Сегменты кода для проверки
+///
+/// # Returns
+///
+/// true если найдены CRLF переносы, false иначе
 fn contains_crlf(segments: &Segments) -> bool {
     if segments.prefix.contains("\r\n") {
         return true;
@@ -531,7 +831,19 @@ fn contains_crlf(segments: &Segments) -> bool {
     false
 }
 
-/// Overrides prompt line endings based on CRLF usage
+/// Преобразует переносы строк в промпте при необходимости
+///
+/// Нормализует CRLF переносы в LF для единообразной обработки моделью.
+/// Это необходимо, поскольку модели обычно обучены на LF переносах.
+///
+/// # Arguments
+///
+/// * `prompt` - Исходный промпт
+/// * `use_crlf` - Флаг использования CRLF в исходном коде
+///
+/// # Returns
+///
+/// Промпт с нормализованными переносами строк
 fn override_prompt(prompt: String, use_crlf: bool) -> String {
     if use_crlf {
         prompt.replace("\r\n", "\n")
@@ -540,21 +852,53 @@ fn override_prompt(prompt: String, use_crlf: bool) -> String {
     }
 }
 
-/// override_generated_text replaces \n with \r\n in the generated text if use_crlf is true.
-/// This is used to ensure that the generated text has the same line endings as the prompt.
+/// Преобразует переносы строк в сгенерированном тексте
 ///
-/// Because there might be \r\n in the text, which also has a `\n` and should not be replaced,
-/// we can not simply replace \n with \r\n.
+/// Заменяет \n на \r\n в сгенерированном тексте если use_crlf равно true.
+/// Это обеспечивает соответствие стиля переносов строк исходному коду.
+///
+/// Поскольку в тексте могут уже присутствовать \r\n последовательности,
+/// которые также содержат `\n` и не должны заменяться, мы не можем
+/// просто заменить \n на \r\n. Используется regex для точного поиска.
+///
+/// # Arguments
+///
+/// * `generated` - Сгенерированный текст
+/// * `use_crlf` - Флаг использования CRLF стиля
+///
+/// # Returns
+///
+/// Текст с корректными переносами строк
 fn override_generated_text(generated: String, use_crlf: bool) -> String {
     if use_crlf {
-        let re = Regex::new(r"([^\r])\n").unwrap(); // Match \n that is preceded by anything except \r
-        re.replace_all(&generated, "$1\r\n").to_string() // Replace with captured character and \r\n
+        // Находим \n, которым не предшествует \r
+        let re = Regex::new(r"([^\r])\n").unwrap();
+        re.replace_all(&generated, "$1\r\n").to_string()
     } else {
         generated
     }
 }
 
-/// Creates completion service and chat components
+/// Создает сервис автодополнения и чат-сервисы
+///
+/// Фабричная функция для инициализации всех компонентов системы
+/// автодополнения: основного сервиса, потокового автодополнения
+/// и чат-сервиса. Загружает модели и настраивает все зависимости.
+///
+/// # Arguments
+///
+/// * `config` - Конфигурация автодополнения
+/// * `code` - Поисковый движок для RAG
+/// * `logger` - Система логирования событий
+/// * `completion` - Конфигурация модели автодополнения
+/// * `chat` - Конфигурация чат-модели
+///
+/// # Returns
+///
+/// Кортеж из опциональных сервисов:
+/// - CompletionService для основного автодополнения
+/// - CompletionStream для потокового автодополнения
+/// - ChatCompletionStream для чат-функциональности
 pub async fn create_completion_service_and_chat(
     config: &CompletionConfig,
     code: Arc<dyn CodeSearch>,
@@ -587,31 +931,35 @@ pub async fn create_completion_service_and_chat(
 // === TESTS ===
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use async_stream::stream;
     use async_trait::async_trait;
     use futures::stream::BoxStream;
 
-    use tabby_common::api::{
-        code::{CodeSearchError, CodeSearchParams, CodeSearchQuery, CodeSearchResponse},
-        event,
+    use tabby_common::{
+        api::{
+            code::{CodeSearchError, CodeSearchParams, CodeSearchQuery, CodeSearchResponse},
+            event,
+        },
+        axum::AllowedCodeRepository,
     };
     use tabby_inference::{CompletionOptions, CompletionStream};
 
     use super::*;
 
+    /// Mock реализация системы логирования для тестов
     struct MockEventLogger;
 
     impl EventLogger for MockEventLogger {
         fn write(&self, _x: event::LogEntry) {}
     }
 
+    /// Mock реализация потокового автодополнения для тестов
     struct MockCompletionStream;
 
     #[async_trait]
     impl CompletionStream for MockCompletionStream {
-        async fn generate<'a>(&'a self, _prompt: &str, _options: CompletionOptions) -> BoxStream<'a, String> {
+        #[allow(mismatched_lifetime_syntaxes)]
+        async fn generate(&self, _prompt: &'_ str, _options: CompletionOptions) -> BoxStream<String> {
             let s = stream! {
                 yield r#""Hello, world!""#.into();
             };
@@ -620,6 +968,7 @@ mod tests {
         }
     }
 
+    /// Mock реализация поиска кода для тестов
     struct MockCodeSearch;
 
     #[async_trait]
@@ -633,6 +982,7 @@ mod tests {
         }
     }
 
+    /// Создает mock сервис автодополнения для тестирования
     fn mock_completion_service() -> CompletionService {
         let generation = CodeGeneration::new(Arc::new(MockCompletionStream), None);
         CompletionService::new(

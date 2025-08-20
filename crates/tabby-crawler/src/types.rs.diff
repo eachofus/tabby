@@ -1,0 +1,48 @@
+1d0
+< // === IMPORTS ===
+6,7d4
+< // === STRUCTS ===
+< /// Response structure from Katana crawler containing request/response data
+10c7
+<     #[allow(dead_code)] // Field used for deserialization but not accessed directly in code
+---
+>     #[allow(dead_code)] // TODO: Will be used in enhanced analytics
+16d12
+< /// HTTP request information captured by Katana crawler
+19c15
+<     #[allow(dead_code)] // Field used for deserialization but not accessed directly in code
+---
+>     #[allow(dead_code)] // TODO: Will be used for API pattern analysis
+22c18
+<     #[allow(dead_code)] // Field used for deserialization but not accessed directly in code
+---
+>     #[allow(dead_code)] // TODO: Will be used for ML processing
+26d21
+< /// HTTP response information captured by Katana crawler
+32c27
+<     #[allow(dead_code)] // Field used for deserialization but not accessed directly in code
+---
+>     #[allow(dead_code)] // TODO: Core of technology stack analysis
+37d31
+< /// Metadata extracted from crawled web pages
+44,52d37
+< /// Complete crawled document with content and metadata
+< #[derive(Serialize)]
+< pub struct CrawledDocument {
+<     pub url: String,
+<     pub markdown: String,
+<     pub metadata: CrawledMetadata,
+< }
+< 
+< // === IMPLEMENTATIONS ===
+70a56,63
+> #[derive(Serialize)]
+> pub struct CrawledDocument {
+>     pub url: String,
+>     pub markdown: String,
+> 
+>     pub metadata: CrawledMetadata,
+> }
+> 
+72d64
+<     /// Create a new crawled document with URL, markdown content, and metadata

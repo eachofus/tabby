@@ -1,0 +1,231 @@
+1d0
+< // === MODULES ===
+5d3
+< // === IMPORTS ===
+10,12d7
+< use thiserror::Error;
+< use utoipa::ToSchema;
+< 
+26a22,23
+> use thiserror::Error;
+> use utoipa::ToSchema;
+30,31d26
+< // === ENUMS ===
+< /// Errors that can occur during completion processing
+38,39d32
+< // === STRUCTS ===
+< /// Request structure for code completion
+74a68,71
+> pub fn default_standard_mode() -> String {
+>     "standard".to_string()
+> }
+> 
+87c84,109
+< /// Debug options for completion requests
+---
+> impl CompletionRequest {
+>     /// Returns the language info or "unknown" if not specified.
+>     fn language_or_unknown(&self) -> String {
+>         self.language.clone().unwrap_or("unknown".to_string())
+>     }
+> 
+>     /// Returns the raw prompt if specified.
+>     fn raw_prompt(&self) -> Option<String> {
+>         self.debug_options
+>             .as_ref()
+>             .and_then(|x| x.raw_prompt.clone())
+>     }
+> 
+>     /// Returns true if retrieval augmented code completion is disabled.
+>     fn disable_retrieval_augmented_code_completion(&self) -> bool {
+>         self.debug_options
+>             .as_ref()
+>             .is_some_and(|x| x.disable_retrieval_augmented_code_completion)
+>     }
+> 
+>     /// Returns true if the request is for next edit suggestion mode.
+>     fn is_next_edit_suggestion_mode(&self) -> bool {
+>         self.mode == "next_edit_suggestion"
+>     }
+> }
+> 
+108c130,133
+< /// Code segments for completion context
+---
+> fn default_false() -> bool {
+>     false
+> }
+> 
+159a185,199
+> impl From<Segments> for api::event::Segments {
+>     fn from(val: Segments) -> Self {
+>         Self {
+>             prefix: val.prefix,
+>             suffix: val.suffix,
+>             clipboard: val.clipboard,
+>             git_url: val.git_url,
+>             declarations: val
+>                 .declarations
+>                 .map(|x| x.into_iter().map(Into::into).collect()),
+>             filepath: val.filepath,
+>         }
+>     }
+> }
+> 
+174c214,222
+< /// A completion choice returned by the model
+---
+> impl From<Declaration> for api::event::Declaration {
+>     fn from(val: Declaration) -> Self {
+>         Self {
+>             filepath: val.filepath,
+>             body: val.body,
+>         }
+>     }
+> }
+> 
+181c229,234
+< /// A code snippet with relevance score
+---
+> impl Choice {
+>     pub fn new(text: String) -> Self {
+>         Self { index: 0, text }
+>     }
+> }
+> 
+189d241
+< /// Response structure for code completion
+206c258,273
+< /// Debug data included in completion responses when requested
+---
+> impl CompletionResponse {
+>     pub fn new(
+>         id: String,
+>         choices: Vec<Choice>,
+>         debug_data: Option<DebugData>,
+>         mode: String,
+>     ) -> Self {
+>         Self {
+>             id,
+>             choices,
+>             debug_data,
+>             mode,
+>         }
+>     }
+> }
+> 
+227,299d293
+< // === IMPLEMENTATIONS ===
+< impl CompletionRequest {
+<     /// Returns the language info or "unknown" if not specified.
+<     fn language_or_unknown(&self) -> String {
+<         self.language.clone().unwrap_or("unknown".to_string())
+<     }
+< 
+<     /// Returns the raw prompt if specified.
+<     fn raw_prompt(&self) -> Option<String> {
+<         self.debug_options
+<             .as_ref()
+<             .and_then(|x| x.raw_prompt.clone())
+<     }
+< 
+<     /// Returns true if retrieval augmented code completion is disabled.
+<     fn disable_retrieval_augmented_code_completion(&self) -> bool {
+<         self.debug_options
+<             .as_ref()
+<             .is_some_and(|x| x.disable_retrieval_augmented_code_completion)
+<     }
+< 
+<     /// Returns true if the request is for next edit suggestion mode.
+<     fn is_next_edit_suggestion_mode(&self) -> bool {
+<         self.mode == "next_edit_suggestion"
+<     }
+< }
+< 
+< impl From<Segments> for api::event::Segments {
+<     fn from(val: Segments) -> Self {
+<         Self {
+<             prefix: val.prefix,
+<             suffix: val.suffix,
+<             clipboard: val.clipboard,
+<             git_url: val.git_url,
+<             declarations: val
+<                 .declarations
+<                 .map(|x| x.into_iter().map(Into::into).collect()),
+<             filepath: val.filepath,
+<         }
+<     }
+< }
+< 
+< impl From<Declaration> for api::event::Declaration {
+<     fn from(val: Declaration) -> Self {
+<         Self {
+<             filepath: val.filepath,
+<             body: val.body,
+<         }
+<     }
+< }
+< 
+< impl Choice {
+<     pub fn new(text: String) -> Self {
+<         Self { index: 0, text }
+<     }
+< }
+< 
+< impl CompletionResponse {
+<     pub fn new(
+<         id: String,
+<         choices: Vec<Choice>,
+<         debug_data: Option<DebugData>,
+<         mode: String,
+<     ) -> Self {
+<         Self {
+<             id,
+<             choices,
+<             debug_data,
+<             mode,
+<         }
+<     }
+< }
+< 
+509,520d502
+< // === FREE FUNCTIONS ===
+< /// Returns the default completion mode
+< pub fn default_standard_mode() -> String {
+<     "standard".to_string()
+< }
+< 
+< /// Returns false as default value for boolean options
+< fn default_false() -> bool {
+<     false
+< }
+< 
+< /// Checks if segments contain CRLF line endings
+534d515
+< /// Overrides prompt line endings based on CRLF usage
+557d537
+< /// Creates completion service and chat components
+587d566
+< // === TESTS ===
+590,591c569
+<     use std::sync::Arc;
+< 
+---
+>     use api::code::CodeSearchParams;
+595,599c573
+< 
+<     use tabby_common::api::{
+<         code::{CodeSearchError, CodeSearchParams, CodeSearchQuery, CodeSearchResponse},
+<         event,
+<     };
+---
+>     use tabby_common::api::code::{CodeSearchError, CodeSearchQuery, CodeSearchResponse};
+607c581
+<         fn write(&self, _x: event::LogEntry) {}
+---
+>         fn write(&self, _x: api::event::LogEntry) {}
+614c588,589
+<         async fn generate<'a>(&'a self, _prompt: &str, _options: CompletionOptions) -> BoxStream<'a, String> {
+---
+>         #[allow(mismatched_lifetime_syntaxes)]
+>         async fn generate(&self, _prompt: &'_ str, _options: CompletionOptions) -> BoxStream<String> {

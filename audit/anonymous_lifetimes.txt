@@ -1,0 +1,27 @@
+./crates/hash-ids/src/lib.rs:    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+./crates/tabby-git/src/grep/output.rs:    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+./crates/tabby-git/src/grep/output.rs:    pub fn negative_sink(&mut self) -> GrepNegativeMatchSink<'_> {
+./crates/tabby-git/src/grep/output.rs:impl Sink for GrepMatchSink<'_, '_> {
+./crates/tabby-git/src/grep/output.rs:        mat: &grep::searcher::SinkMatch<'_>,
+./crates/tabby-git/src/grep/output.rs:        context: &grep::searcher::SinkContext<'_>,
+./crates/tabby-git/src/grep/output.rs:impl Sink for GrepNegativeMatchSink<'_> {
+./crates/tabby-git/src/grep/output.rs:        _mat: &grep::searcher::SinkMatch<'_>,
+./crates/tabby-index-cli/src/timer.rs:impl OpenTimer<'_> {
+./crates/tabby-index-cli/src/timer.rs:    pub fn open(&mut self, name: &'static str) -> OpenTimer<'_> {
+./crates/tabby-index-cli/src/timer.rs:impl Drop for OpenTimer<'_> {
+./crates/tabby-index-cli/src/timer.rs:    pub fn open(&mut self, name: &'static str) -> OpenTimer<'_> {
+./crates/tabby-index/src/indexer.rs:        impl Stream<Item = JoinHandle<Option<TantivyDocument>>> + '_,
+./crates/tabby-index/src/indexer.rs:    ) -> impl Stream<Item = JoinHandle<Result<TantivyDocument>>> + '_ {
+./crates/tabby-index/src/indexer.rs:    pub fn iter_ids(&self) -> impl Stream<Item = (String, String)> + '_ {
+./crates/tabby-common/src/config.rs:            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '.' | '-' => c,
+./crates/tabby-common/src/config.rs:            _ => '_',
+./crates/tabby-common/src/config.rs:    sanitized.dedup_by(|a, b| *a == '_' && *b == '_');
+./crates/tabby-common/src/terminal.rs:impl ToString for InfoMessage<'_> {
+./crates/tabby/src/services/completion.rs:        async fn generate(&self, _prompt: &'_ str, _options: CompletionOptions) -> BoxStream<String> {
+./ee/tabby-webserver/src/axum/websocket.rs:    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+./ee/tabby-webserver/src/axum/websocket.rs:    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+./ee/tabby-webserver/src/axum/websocket.rs:    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+./ee/tabby-webserver/src/axum/websocket.rs:    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+./ee/tabby-webserver/src/service/auth/testutils.rs:impl LdapClient for FakeLdapClient<'_> {
+./ee/tabby-db/src/server_setting.rs:        transaction: &mut Transaction<'_, Sqlite>,
+./ee/tabby-schema/src/policy.rs:    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -1,0 +1,8 @@
+36c36
+<     pub fn create(&self, text: &str, language: Option<&'static Language>) -> StopCondition<'_> {
+---
+>     pub fn create<'a>(&'a self, text: &'a str, language: Option<&'static Language>) -> StopCondition<'a> {
+44c44
+<     fn get_trie(&self, language: &'static Language) -> Option<CachedTrie<'_>> {
+---
+>     fn get_trie<'a>(&'a self, language: &'static Language) -> Option<CachedTrie<'a>> {

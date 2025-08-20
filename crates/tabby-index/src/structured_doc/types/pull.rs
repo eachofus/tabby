@@ -13,18 +13,32 @@ use tokio::task::JoinHandle;
 use super::{build_tokens, BuildStructuredDoc};
 
 // === STRUCTS ===
+/// Документ pull request для индексации
+///
+/// Представляет pull request или merge request из системы контроля версий
+/// (GitHub, GitLab и др.). Содержит метаданные запроса на слияние и опционально
+/// diff изменений для анализа кода.
+///
+/// # Fields
+///
+/// * `link` - Ссылка на pull request
+/// * `title` - Заголовок запроса
+/// * `author_email` - Email автора (опционально)
+/// * `body` - Описание изменений
+/// * `diff` - Diff изменений (до 1MB, опционально)
+/// * `merged` - Статус слияния запроса
 pub struct PullDocument {
     pub link: String,
     pub title: String,
     pub author_email: Option<String>,
     pub body: String,
 
-    /// The diff represents the code changes in this PR,
-    /// including metadata, affected line ranges, and added (+) or removed (-) lines.
-    /// For more details on the diff format, refer to:
-    /// https://git-scm.com/docs/diff-format#_combined_diff_format
+    /// Diff представляет изменения кода в данном PR,
+    /// включая метаданные, затронутые диапазоны строк и добавленные (+) или удаленные (-) строки.
+    /// Подробности формата diff см. в документации:
+    /// https://git-scm.com/docs/diff-format\#_combined_diff_format
     ///
-    /// The diff is only stored if its size is less than or equal to 1MB
+    /// Diff сохраняется только если его размер не превышает 1MB
     pub diff: Option<String>,
     pub merged: bool,
 }
@@ -33,6 +47,7 @@ pub struct PullDocument {
 #[async_trait]
 impl<'content_chunks> BuildStructuredDoc<'content_chunks> for PullDocument {
     fn should_skip(&self) -> bool {
+        // Никогда не пропускаем pull request - они всегда важны для индексации
         false
     }
 
@@ -51,11 +66,13 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for PullDocument {
         &self,
         embedding: Arc<dyn Embedding>,
     ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
-        // currently not indexing the diff
+        // В настоящее время не индексируем diff - только заголовок и описание
+        // TODO: Рассмотреть возможность индексации diff для улучшения поиска по коду
         let text = format!("{}\n\n{}", self.title, self.body);
+        
         let s = stream! {
             yield tokio::spawn(async move {
-                let tokens = match build_tokens(embedding, &text).await{
+                let tokens = match build_tokens(embedding, &text).await {
                     Ok(tokens) => tokens,
                     Err(e) => {
                         return Err(anyhow::anyhow!("Failed to build tokens for text: {}", e));
@@ -63,7 +80,7 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for PullDocument {
                 };
                 let chunk_attributes = json!({});
                 Ok((tokens, chunk_attributes))
-            })
+            });
         };
 
         Box::pin(s)

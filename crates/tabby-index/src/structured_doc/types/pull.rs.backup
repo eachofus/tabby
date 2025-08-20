@@ -13,40 +13,37 @@ use tokio::task::JoinHandle;
 use super::{build_tokens, BuildStructuredDoc};
 
 // === STRUCTS ===
-/// Документ issue/задачи для индексации
-///
-/// Представляет задачу или issue из системы отслеживания задач (GitHub, GitLab и др.).
-/// Используется для создания структурированных документов в поисковом индексе.
-///
-/// # Fields
-///
-/// * `link` - Ссылка на issue
-/// * `title` - Заголовок задачи
-/// * `author_email` - Email автора (опционально)
-/// * `body` - Описание задачи
-/// * `closed` - Статус закрытия задачи
-pub struct IssueDocument {
+pub struct PullDocument {
     pub link: String,
     pub title: String,
     pub author_email: Option<String>,
     pub body: String,
-    pub closed: bool,
+
+    /// The diff represents the code changes in this PR,
+    /// including metadata, affected line ranges, and added (+) or removed (-) lines.
+    /// For more details on the diff format, refer to:
+    /// https://git-scm.com/docs/diff-format#_combined_diff_format
+    ///
+    /// The diff is only stored if its size is less than or equal to 1MB
+    pub diff: Option<String>,
+    pub merged: bool,
 }
 
 // === IMPLEMENTATIONS ===
 #[async_trait]
-impl<'content_chunks> BuildStructuredDoc<'content_chunks> for IssueDocument {
+impl<'content_chunks> BuildStructuredDoc<'content_chunks> for PullDocument {
     fn should_skip(&self) -> bool {
         false
     }
 
     async fn build_attributes(&self) -> serde_json::Value {
         json!({
-            fields::issue::LINK: self.link,
-            fields::issue::TITLE: self.title,
-            fields::issue::AUTHOR_EMAIL: self.author_email,
-            fields::issue::BODY: self.body,
-            fields::issue::CLOSED: self.closed,
+            fields::pull::LINK: self.link,
+            fields::pull::TITLE: self.title,
+            fields::pull::AUTHOR_EMAIL: self.author_email,
+            fields::pull::BODY: self.body,
+            fields::pull::DIFF: self.diff,
+            fields::pull::MERGED: self.merged,
         })
     }
 
@@ -54,12 +51,11 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for IssueDocument {
         &self,
         embedding: Arc<dyn Embedding>,
     ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
-        // Объединяем заголовок и описание для токенизации
+        // currently not indexing the diff
         let text = format!("{}\n\n{}", self.title, self.body);
-        
         let s = stream! {
             yield tokio::spawn(async move {
-                let tokens = match build_tokens(embedding, &text).await {
+                let tokens = match build_tokens(embedding, &text).await{
                     Ok(tokens) => tokens,
                     Err(e) => {
                         return Err(anyhow::anyhow!("Failed to build tokens for text: {}", e));
@@ -67,7 +63,7 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for IssueDocument {
                 };
                 let chunk_attributes = json!({});
                 Ok((tokens, chunk_attributes))
-            });
+            })
         };
 
         Box::pin(s)

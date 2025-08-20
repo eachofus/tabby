@@ -1,0 +1,78 @@
+6c6,11
+< use grep::{matcher::Matcher, regex::RegexMatcher, searcher::Sink};
+---
+> use grep::{
+>     matcher::Matcher, 
+>     regex::RegexMatcher, 
+>     searcher::Sink
+> };
+> 
+9c14,19
+< use super::{GrepFile, GrepLine, GrepSubMatch, GrepTextOrBase64};
+---
+> use super::{
+>     GrepFile, 
+>     GrepLine, 
+>     GrepSubMatch, 
+>     GrepTextOrBase64
+> };
+54,57c64,67
+<     pub fn sink<'output, 'a>(
+<         &'output mut self,
+<         matcher: &'a RegexMatcher,
+<     ) -> GrepMatchSink<'output, 'a> {
+---
+>     pub fn sink<'processor, 'pattern>(
+>         &'processor mut self,
+>         matcher: &'pattern RegexMatcher,
+>     ) -> GrepMatchSink<'processor, 'pattern> {
+64c74
+<     pub fn negative_sink(&mut self) -> GrepNegativeMatchSink<'_> {
+---
+>     pub fn negative_sink<'processor>(&'processor mut self) -> GrepNegativeMatchSink<'processor> {
+136,138c146,148
+< pub struct GrepMatchSink<'output, 'a> {
+<     output: &'output mut GrepOutput,
+<     matcher: &'a RegexMatcher,
+---
+> pub struct GrepMatchSink<'processor, 'pattern> {
+>     output: &'processor mut GrepOutput,
+>     matcher: &'pattern RegexMatcher,
+141c151
+< impl Sink for GrepMatchSink<'_, '_> {
+---
+> impl<'processor, 'pattern> Sink for GrepMatchSink<'processor, 'pattern> {
+144c154
+<     fn matched(
+---
+>     fn matched<'matchspan>(
+147c157
+<         mat: &grep::searcher::SinkMatch<'_>,
+---
+>         mat: &grep::searcher::SinkMatch<'matchspan>,
+178c188
+<     fn context(
+---
+>     fn context<'vicinity>(
+181c191
+<         context: &grep::searcher::SinkContext<'_>,
+---
+>         context: &grep::searcher::SinkContext<'vicinity>,
+200,201c210,211
+< pub struct GrepNegativeMatchSink<'output> {
+<     output: &'output mut GrepOutput,
+---
+> pub struct GrepNegativeMatchSink<'processor> {
+>     output: &'processor mut GrepOutput,
+204c214
+< impl Sink for GrepNegativeMatchSink<'_> {
+---
+> impl<'processor> Sink for GrepNegativeMatchSink<'processor> {
+207c217
+<     fn matched(
+---
+>     fn matched<'matchspan>(
+210c220
+<         _mat: &grep::searcher::SinkMatch<'_>,
+---
+>         _mat: &grep::searcher::SinkMatch<'matchspan>,

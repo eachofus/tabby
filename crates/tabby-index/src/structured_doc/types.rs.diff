@@ -1,0 +1,67 @@
+1d0
+< // === MODULES ===
+9d7
+< // === IMPORTS ===
+21c19,23
+< // === CONSTANTS ===
+---
+> pub struct StructuredDoc {
+>     pub source_id: String,
+>     pub fields: StructuredDocFields,
+> }
+> 
+29,58d30
+< // === ENUMS ===
+< pub enum StructuredDocFields {
+<     Web(web::WebDocument),
+<     Issue(issue::IssueDocument),
+<     Pull(pull::PullDocument),
+<     Commit(commit::CommitDocument),
+<     Page(page::PageDocument),
+<     Ingested(ingested::IngestedDocument),
+< }
+< 
+< // === STRUCTS ===
+< pub struct StructuredDoc {
+<     pub source_id: String,
+<     pub fields: StructuredDocFields,
+< }
+< 
+< // === TRAITS ===
+< #[async_trait]
+< pub trait BuildStructuredDoc<'content_chunks> {
+<     fn should_skip(&self) -> bool;
+< 
+<     async fn build_attributes(&self) -> serde_json::Value;
+<     
+<     async fn build_chunk_attributes(
+<         &self,
+<         embedding: Arc<dyn Embedding>,
+<     ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>>;
+< }
+< 
+< // === IMPLEMENTATIONS ===
+92a65,85
+> pub trait BuildStructuredDoc<'content_chunks> {
+>     fn should_skip(&self) -> bool;
+> 
+>     async fn build_attributes(&self) -> serde_json::Value;
+>     
+>     async fn build_chunk_attributes(
+>         &self,
+>         embedding: Arc<dyn Embedding>,
+>     ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>>;
+> }
+> 
+> pub enum StructuredDocFields {
+>     Web(web::WebDocument),
+>     Issue(issue::IssueDocument),
+>     Pull(pull::PullDocument),
+>     Commit(commit::CommitDocument),
+>     Page(page::PageDocument),
+>     Ingested(ingested::IngestedDocument),
+> }
+> 
+> #[async_trait]
+131d123
+< // === FREE FUNCTIONS ===

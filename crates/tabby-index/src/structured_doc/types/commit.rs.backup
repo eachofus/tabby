@@ -14,17 +14,6 @@ use tokio::task::JoinHandle;
 use super::{build_tokens, BuildStructuredDoc};
 
 // === STRUCTS ===
-/// Документ коммита для индексации
-///
-/// Представляет коммит из системы контроля версий с основными метаданными.
-/// Используется для создания структурированных документов в поисковом индексе.
-///
-/// # Fields
-///
-/// * `sha` - Уникальный хеш коммита
-/// * `message` - Сообщение коммита
-/// * `author_email` - Email автора коммита  
-/// * `author_at` - Временная метка создания коммита
 #[derive(Debug)]
 pub struct CommitDocument {
     pub sha: String,

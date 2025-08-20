@@ -1,0 +1,113 @@
+./crates/hash-ids/src/lib.rs:    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+./crates/ollama-api-bindings/src/completion.rs:    async fn generate<'a>(&'a self, prompt: &str, options: CompletionOptions) -> BoxStream<'a, String> {
+./crates/http-api-bindings/src/completion/mistral.rs:    async fn generate<'a>(&'a self, prompt: &str, options: CompletionOptions) -> BoxStream<'a, String> {
+./crates/http-api-bindings/src/completion/llama.rs:    async fn generate<'a>(&'a self, prompt: &str, options: CompletionOptions) -> BoxStream<'a, String> {
+./crates/http-api-bindings/src/completion/openai.rs:    async fn generate<'a>(&'a self, prompt: &str, options: CompletionOptions) -> BoxStream<'a, String> {
+./crates/http-api-bindings/src/rate_limit.rs:    async fn generate<'a>(&'a self, prompt: &str, options: CompletionOptions) -> BoxStream<'a, String> {
+./crates/tabby-git/src/lib.rs:fn rev_to_commit<'a>(
+./crates/tabby-git/src/grep/output.rs:    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+./crates/tabby-git/src/grep/output.rs:    pub fn sink<'output, 'a>(
+./crates/tabby-git/src/grep/output.rs:    pub fn negative_sink(&mut self) -> GrepNegativeMatchSink<'_> {
+./crates/tabby-git/src/serve_git.rs:fn resolve<'a>(
+./crates/tabby-inference/src/decoding.rs:    pub fn create<'a>(&'a self, text: &'a str, language: Option<&'static Language>) -> StopCondition<'a> {
+./crates/tabby-inference/src/decoding.rs:    fn get_trie<'a>(&'a self, language: &'static Language) -> Option<CachedTrie<'a>> {
+./crates/tabby-inference/src/decoding.rs:    pub fn new(stop_trie: Option<CachedTrie<'a>>, text: &str) -> Self {
+./crates/tabby-inference/src/completion.rs:    async fn generate<'a>(&'a self, prompt: &str, options: CompletionOptions) -> BoxStream<'a, String>;
+./crates/tabby-index-cli/src/timer.rs:    pub fn open(&mut self, name: &'static str) -> OpenTimer<'_> {
+./crates/tabby-index-cli/src/timer.rs:    pub fn open(&mut self, name: &'static str) -> OpenTimer<'_> {
+./crates/sqlx-migrate-validate/src/validate.rs:    async fn validate<'c, C>(&self, conn: &mut C) -> Result<(), ValidateError>
+./crates/sqlx-migrate-validate/src/validate.rs:    pub async fn new<'s, S>(source: S) -> Result<Self, MigrateError>
+./crates/sqlx-migrate-validate/src/validate.rs:    pub async fn validate<'c, C>(&self, conn: &mut C) -> Result<(), ValidateError>
+./crates/sqlx-migrate-validate/src/validate.rs:    async fn validate<'c, C>(&self, conn: &mut C) -> Result<(), ValidateError>
+./crates/tabby-index/src/code/mod.rs:    async fn build_chunk_attributes<'a>(
+./crates/tabby-index/src/structured_doc/mod.rs:    async fn build_chunk_attributes<'a>(
+./crates/tabby-index/src/indexer.rs:    async fn build_chunk_attributes<'a>(
+./crates/tabby-index/src/indexer.rs:    pub fn new(corpus: &'static str, builder: impl IndexAttributeBuilder<T> + 'static) -> Self {
+./crates/tabby-index/src/indexer.rs:    pub async fn get_doc_kind<'a>(&self, id: &str) -> Result<Option<String>> {
+./crates/tabby-index/src/indexer.rs:    pub fn iter_ids(&self) -> impl Stream<Item = (String, String)> + '_ {
+./crates/tabby-index/src/indexer.rs:fn get_json_field<'a>(
+./crates/tabby-index/src/indexer.rs:fn get_json_field_optional<'a>(
+./crates/tabby-index/src/indexer.rs:fn get_json_text_optional<'a>(
+./crates/tabby-common/src/axum.rs:    fn decode<'i, I>(values: &mut I) -> Result<Self, axum_extra::headers::Error>
+./crates/tabby-common/src/axum.rs:fn closest_match<'a>(
+./crates/tabby-common/src/languages.rs:pub fn get_language_by_ext(ext: &OsStr) -> Option<&'static Language> {
+./crates/tabby-common/src/api/structured_doc.rs:fn get_json_field<'a>(
+./crates/tabby-common/src/api/structured_doc.rs:fn get_json_text_field<'a>(doc: &'a TantivyDocument, field: schema::Field, name: &str) -> &'a str {
+./crates/tabby-common/src/api/structured_doc.rs:fn get_json_option_field<'a>(
+./crates/tabby-common/src/api/structured_doc.rs:fn get_json_option_text_field<'a>(
+./crates/tabby-common/src/index/mod.rs:pub fn binarize_embedding<'a>(
+./crates/tabby-common/src/index/mod.rs:pub fn embedding_tokens_query<'a>(
+./crates/tabby-common/src/index/mod.rs:fn new_multiterms_const_query<'a>(
+./crates/tabby/src/services/code.rs:fn get_json_text_field<'a>(doc: &'a TantivyDocument, field: schema::Field, name: &str) -> &'a str {
+./crates/tabby/src/services/code.rs:fn get_json_text_field_optional<'a>(
+./crates/tabby/src/services/tantivy.rs:    pub fn reader<'a>(
+./crates/llama-cpp-server/src/lib.rs:    async fn generate<'a>(&'a self, prompt: &str, options: CompletionOptions) -> BoxStream<'a, String> {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} # [inline] pub fn next (& mut self) -> Result < Token < 'a > , () > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} # [inline] pub fn current_source_map_url (& self) -> Option < & 'a str > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} # [inline] pub fn current_source_url (& self) -> Option < & 'a str > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} # [inline] pub fn slice (& self , range : Range < SourcePosition >) -> & 'a str {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn next_token < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Result < Token < 'a > , () > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn consume_whitespace < 'a > (tokenizer : & mut Tokenizer < 'a > , newline : bool) -> Token < 'a > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn check_for_source_map < 'a > (tokenizer : & mut Tokenizer < 'a > , contents : & 'a str) {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn consume_comment < 'a > (tokenizer : & mut Tokenizer < 'a >) -> & 'a str {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn consume_string < 'a > (tokenizer : & mut Tokenizer < 'a > , single_quote : bool) -> Token < 'a > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} # [doc = " Return `Err(())` on syntax error (ie. unescaped newline)"] fn consume_quoted_string < 'a > (tokenizer : & mut Tokenizer < 'a > , single_quote : bool ,) -> Result < CowRcStr < 'a > , CowRcStr < 'a > > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn consume_ident_like < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Token < 'a > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn consume_name < 'a > (tokenizer : & mut Tokenizer < 'a >) -> CowRcStr < 'a > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn consume_numeric < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Token < 'a > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn consume_unquoted_url < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Result < Token < 'a > , () > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn consume_unquoted_url_internal < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Token < 'a > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn consume_url_end < 'a > (tokenizer : & mut Tokenizer < 'a > , start_pos : SourcePosition , string : CowRcStr < 'a > ,) -> Token < 'a > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn consume_bad_url < 'a > (tokenizer : & mut Tokenizer < 'a > , start_pos : SourcePosition) -> Token < 'a > {
+./target/debug/build/cssparser-d03fb6271bd7a56d/out/tokenizer.rs:} fn consume_hex_digits < 'a > (tokenizer : & mut Tokenizer < 'a >) -> (u32 , u32) {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} # [inline] pub fn next (& mut self) -> Result < Token < 'a > , () > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} # [inline] pub fn current_source_map_url (& self) -> Option < & 'a str > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} # [inline] pub fn current_source_url (& self) -> Option < & 'a str > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} # [inline] pub fn slice (& self , range : Range < SourcePosition >) -> & 'a str {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn next_token < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Result < Token < 'a > , () > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn consume_whitespace < 'a > (tokenizer : & mut Tokenizer < 'a > , newline : bool) -> Token < 'a > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn check_for_source_map < 'a > (tokenizer : & mut Tokenizer < 'a > , contents : & 'a str) {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn consume_comment < 'a > (tokenizer : & mut Tokenizer < 'a >) -> & 'a str {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn consume_string < 'a > (tokenizer : & mut Tokenizer < 'a > , single_quote : bool) -> Token < 'a > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} # [doc = " Return `Err(())` on syntax error (ie. unescaped newline)"] fn consume_quoted_string < 'a > (tokenizer : & mut Tokenizer < 'a > , single_quote : bool ,) -> Result < CowRcStr < 'a > , CowRcStr < 'a > > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn consume_ident_like < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Token < 'a > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn consume_name < 'a > (tokenizer : & mut Tokenizer < 'a >) -> CowRcStr < 'a > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn consume_numeric < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Token < 'a > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn consume_unquoted_url < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Result < Token < 'a > , () > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn consume_unquoted_url_internal < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Token < 'a > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn consume_url_end < 'a > (tokenizer : & mut Tokenizer < 'a > , start_pos : SourcePosition , string : CowRcStr < 'a > ,) -> Token < 'a > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn consume_bad_url < 'a > (tokenizer : & mut Tokenizer < 'a > , start_pos : SourcePosition) -> Token < 'a > {
+./target/debug/build/cssparser-94c3ad087203b673/out/tokenizer.rs:} fn consume_hex_digits < 'a > (tokenizer : & mut Tokenizer < 'a >) -> (u32 , u32) {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} # [inline] pub fn next (& mut self) -> Result < Token < 'a > , () > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} # [inline] pub fn current_source_map_url (& self) -> Option < & 'a str > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} # [inline] pub fn current_source_url (& self) -> Option < & 'a str > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} # [inline] pub fn slice (& self , range : Range < SourcePosition >) -> & 'a str {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn next_token < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Result < Token < 'a > , () > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn consume_whitespace < 'a > (tokenizer : & mut Tokenizer < 'a > , newline : bool) -> Token < 'a > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn check_for_source_map < 'a > (tokenizer : & mut Tokenizer < 'a > , contents : & 'a str) {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn consume_comment < 'a > (tokenizer : & mut Tokenizer < 'a >) -> & 'a str {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn consume_string < 'a > (tokenizer : & mut Tokenizer < 'a > , single_quote : bool) -> Token < 'a > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} # [doc = " Return `Err(())` on syntax error (ie. unescaped newline)"] fn consume_quoted_string < 'a > (tokenizer : & mut Tokenizer < 'a > , single_quote : bool ,) -> Result < CowRcStr < 'a > , CowRcStr < 'a > > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn consume_ident_like < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Token < 'a > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn consume_name < 'a > (tokenizer : & mut Tokenizer < 'a >) -> CowRcStr < 'a > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn consume_numeric < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Token < 'a > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn consume_unquoted_url < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Result < Token < 'a > , () > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn consume_unquoted_url_internal < 'a > (tokenizer : & mut Tokenizer < 'a >) -> Token < 'a > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn consume_url_end < 'a > (tokenizer : & mut Tokenizer < 'a > , start_pos : SourcePosition , string : CowRcStr < 'a > ,) -> Token < 'a > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn consume_bad_url < 'a > (tokenizer : & mut Tokenizer < 'a > , start_pos : SourcePosition) -> Token < 'a > {
+./target/debug/build/cssparser-afdcec19de2d6c79/out/tokenizer.rs:} fn consume_hex_digits < 'a > (tokenizer : & mut Tokenizer < 'a >) -> (u32 , u32) {
+./ee/tabby-webserver/src/hub.rs:    fn decode<'i, I>(values: &mut I) -> Result<Self, axum_extra::headers::Error>
+./ee/tabby-webserver/src/webserver.rs:    pub fn logger(&self) -> Arc<dyn EventLogger + 'static> {
+./ee/tabby-webserver/src/axum/websocket.rs:    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+./ee/tabby-webserver/src/axum/websocket.rs:    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+./ee/tabby-webserver/src/axum/websocket.rs:    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+./ee/tabby-webserver/src/axum/websocket.rs:    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+./ee/tabby-webserver/src/service/answer.rs:    pub async fn answer<'a>(
+./ee/tabby-schema/src/policy.rs:    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+./ee/tabby-schema/src/schema/analytic.rs:    pub fn language_names(&self) -> Vec<&'static str> {
+./ee/tabby-schema/src/juniper/relay/edge.rs:    fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r, S>) -> MetaType<'r, S>
+./ee/tabby-schema/src/juniper/relay/edge.rs:    fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
+./ee/tabby-schema/src/juniper/relay/edge.rs:    fn resolve_field_async<'a>(
+./ee/tabby-schema/src/juniper/relay/connection.rs:    fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r, S>) -> MetaType<'r, S>
+./ee/tabby-schema/src/juniper/relay/connection.rs:    fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
+./ee/tabby-schema/src/juniper/relay/connection.rs:    fn resolve_field_async<'a>(

@@ -1,57 +1,95 @@
 // === IMPORTS ===
 use std::{sync::Arc, time::Duration};
 
-use anyhow::Result;
-use futures::Future;
+use tabby_common::{index::IndexSchema, path};
 use tantivy::{Index, IndexReader};
-use tokio::sync::{RwLock, RwLockReadGuard};
+use tokio::sync::RwLock;
 use tracing::debug;
 
-use tabby_common::{index::IndexSchema, path};
-
 // === STRUCTS ===
-/// Provider for IndexReader with automatic loading and reloading capabilities
-/// 
-/// This struct manages an IndexReader instance that is loaded asynchronously
-/// and can be accessed through a read-write lock. It automatically retries
-/// loading the index if it fails initially.
+/// Провайдер для доступа к индексу Tantivy с асинхронной загрузкой
+///
+/// Обеспечивает потокобезопасный доступ к индексу поиска с автоматической
+/// загрузкой в фоновом режиме. Поддерживает проверку схемы индекса и
+/// автоматические повторы при недоступности индекса.
+///
+/// Использует RwLock для эффективного чтения индекса множественными потоками
+/// и фоновую задачу для асинхронной инициализации.
+///
+/// # Поля
+///
+/// * `provider` - Потокобезопасный доступ к IndexReader
+/// * `loader` - Фоновая задача для загрузки индекса
+///
+/// # Examples
+///
+/// ```rust
+/// let provider = IndexReaderProvider::default();
+/// let reader_guard = provider.reader().await;
+/// if let Some(reader) = reader_guard.as_ref() {
+///     // Использование индекса для поиска
+/// }
+/// ```
 pub struct IndexReaderProvider {
+    /// Потокобезопасный контейнер для IndexReader
     provider: Arc<RwLock<Option<IndexReader>>>,
+    /// Фоновая задача загрузки индекса
     loader: tokio::task::JoinHandle<()>,
 }
 
 // === IMPLEMENTATIONS ===
 impl IndexReaderProvider {
-    /// Returns a future that resolves to a read guard for the IndexReader
-    /// 
-    /// The returned guard allows read-only access to the optional IndexReader.
-    /// If the index is not yet loaded, the Option will be None.
-    pub fn reader(&self) -> impl Future<Output = RwLockReadGuard<'_, Option<IndexReader>>> {
+    /// Получает guard для чтения IndexReader
+    ///
+    /// Возвращает RwLockReadGuard, который позволяет безопасно читать
+    /// индекс из множественных потоков. Если индекс еще не загружен,
+    /// возвращает None внутри Option.
+    ///
+    /// # Returns
+    ///
+    /// Future, который разрешается в RwLockReadGuard с Option<IndexReader>
+    pub fn reader<'a>(
+        &'a self,
+    ) -> impl futures::Future<Output = tokio::sync::RwLockReadGuard<'a, Option<IndexReader>>> {
         self.provider.read()
     }
 
-    /// Attempts to load an IndexReader from the configured index directory
-    /// 
+    /// Синхронная загрузка IndexReader с проверкой схемы
+    ///
+    /// Открывает индекс из директории и проверяет совместимость схемы.
+    /// Используется внутренне для инициализации индекса.
+    ///
+    /// # Returns
+    ///
+    /// IndexReader при успешной загрузке
+    ///
     /// # Errors
-    /// 
-    /// Returns an error if:
-    /// - The index directory cannot be opened
-    /// - The index schema doesn't match the expected schema
-    /// - The IndexReader cannot be created
-    fn load() -> Result<IndexReader> {
+    ///
+    /// Возвращает ошибку если:
+    /// - Директория индекса недоступна
+    /// - Схема индекса не совпадает с ожидаемой
+    /// - Ошибка создания IndexReader
+    fn load() -> anyhow::Result<IndexReader> {
+        // Открываем индекс из стандартной директории
         let index = Index::open_in_dir(path::index_dir())?;
 
+        // Проверяем совместимость схемы индекса для предотвращения ошибок поиска
         if index.schema() != IndexSchema::instance().schema {
             return Err(anyhow::anyhow!("Index schema mismatch"));
         }
 
+        // Создаем reader с настройками по умолчанию
         Ok(index.reader_builder().try_into()?)
     }
 
-    /// Asynchronously loads an IndexReader with retry logic
-    /// 
-    /// This function will continuously attempt to load the index every 60 seconds
-    /// until it succeeds. It logs when the index becomes ready.
+    /// Асинхронная загрузка с повторами при ошибках
+    ///
+    /// Бесконечно пытается загрузить индекс с интервалом в 60 секунд
+    /// между попытками. Используется для фоновой инициализации.
+    ///
+    /// # Returns
+    ///
+    /// IndexReader после успешной загрузки (никогда не возвращает ошибку)
     async fn load_async() -> IndexReader {
         loop {
             if let Ok(provider) = Self::load() {
@@ -59,22 +97,32 @@ impl IndexReaderProvider {
                 return provider;
             }
 
+            // Ждем 60 секунд перед следующей попыткой загрузки
+            // Это предотвращает чрезмерную нагрузку на систему при недоступности индекса
             tokio::time::sleep(Duration::from_secs(60)).await;
         }
     }
 }
 
 impl Default for IndexReaderProvider {
-    /// Creates a new IndexReaderProvider with automatic loading
-    /// 
-    /// The provider starts with no IndexReader loaded and spawns a background
-    /// task to load it asynchronously. The loading task will retry indefinitely
-    /// until successful.
+    /// Создает новый провайдер с фоновой загрузкой индекса
+    ///
+    /// Инициализирует пустой провайдер и запускает фоновую задачу
+    /// для асинхронной загрузки индекса. Индекс становится доступным
+    /// после успешной загрузки в фоновом режиме.
+    ///
+    /// # Returns
+    ///
+    /// Новый экземпляр IndexReaderProvider с запущенной фоновой загрузкой
     fn default() -> Self {
+        // Создаем пустой контейнер для IndexReader
         let provider = Arc::new(RwLock::new(None));
         let cloned_provider = provider.clone();
+        
+        // Запускаем фоновую задачу для загрузки индекса
         let loader = tokio::spawn(async move {
             let doc = Self::load_async().await;
+            // Атомарно обновляем провайдер с загруженным индексом
             *cloned_provider.write().await = Some(doc);
         });
 
@@ -83,8 +131,12 @@ impl Default for IndexReaderProvider {
 }
 
 impl Drop for IndexReaderProvider {
-    /// Aborts the background loading task when the provider is dropped
+    /// Корректно завершает фоновую задачу при уничтожении провайдера
+    ///
+    /// Отменяет фоновую задачу загрузки для предотвращения утечек ресурсов
+    /// и зависших задач после уничтожения провайдера.
     fn drop(&mut self) {
+        // Принудительно завершаем фоновую задачу
         self.loader.abort()
     }
 }

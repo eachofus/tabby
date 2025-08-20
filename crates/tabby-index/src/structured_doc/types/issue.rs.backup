@@ -13,18 +13,6 @@ use tokio::task::JoinHandle;
 use super::{build_tokens, BuildStructuredDoc};
 
 // === STRUCTS ===
-/// Документ issue/задачи для индексации
-///
-/// Представляет задачу или issue из системы отслеживания задач (GitHub, GitLab и др.).
-/// Используется для создания структурированных документов в поисковом индексе.
-///
-/// # Fields
-///
-/// * `link` - Ссылка на issue
-/// * `title` - Заголовок задачи
-/// * `author_email` - Email автора (опционально)
-/// * `body` - Описание задачи
-/// * `closed` - Статус закрытия задачи
 pub struct IssueDocument {
     pub link: String,
     pub title: String,
@@ -54,12 +42,10 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for IssueDocument {
         &self,
         embedding: Arc<dyn Embedding>,
     ) -> BoxStream<'content_chunks, JoinHandle<Result<(Vec<String>, serde_json::Value)>>> {
-        // Объединяем заголовок и описание для токенизации
         let text = format!("{}\n\n{}", self.title, self.body);
-        
         let s = stream! {
             yield tokio::spawn(async move {
-                let tokens = match build_tokens(embedding, &text).await {
+                let tokens = match build_tokens(embedding, &text).await{
                     Ok(tokens) => tokens,
                     Err(e) => {
                         return Err(anyhow::anyhow!("Failed to build tokens for text: {}", e));
@@ -67,7 +53,7 @@ impl<'content_chunks> BuildStructuredDoc<'content_chunks> for IssueDocument {
                 };
                 let chunk_attributes = json!({});
                 Ok((tokens, chunk_attributes))
-            });
+            })
         };
 
         Box::pin(s)

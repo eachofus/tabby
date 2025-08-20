@@ -1,0 +1,31 @@
+1d0
+< // === IMPORTS ===
+2a2
+> use gitlab::api::{projects::Projects, AsyncQuery, Pagination};
+5,6d4
+< use gitlab::api::{projects::Projects, AsyncQuery, Pagination};
+< 
+10,11c8,15
+< // === ENUMS ===
+< /// Error types that can occur during GitLab API operations
+---
+> #[derive(Deserialize)]
+> pub struct GitlabRepository {
+>     pub id: u128,
+>     pub path_with_namespace: String,
+>     pub http_url_to_repo: String,
+> }
+> 
+> #[allow(dead_code)] // Error handling for future GitLab API extensions
+13d16
+< #[allow(dead_code)] // Error enum defined for future error handling but not currently used
+23,31d25
+< // === STRUCTS ===
+< /// GitLab repository representation from API response
+< #[derive(Deserialize)]
+< pub struct GitlabRepository {
+<     pub id: u128,
+<     pub path_with_namespace: String,
+<     pub http_url_to_repo: String,
+< }
+< 
