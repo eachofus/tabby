@@ -1,18 +1,5 @@
-//! Модуль маршрутизации HTTP API
-//!
-//! Содержит определения всех HTTP endpoints и логику запуска веб-сервера.
-//! Объединяет API маршруты, UI интерфейс, метрики мониторинга и CORS настройки.
-
-// === MODULES ===
-mod chat;
-mod completions;
-mod events;
-mod health;
 mod metrics;
-mod models;
-mod server_setting;
 
-// === IMPORTS ===
 use std::{
     net::{IpAddr, SocketAddr},
     sync::Arc,
@@ -24,30 +11,8 @@ use tower_http::cors::CorsLayer;
 
 use crate::fatal;
 
-// === FREE FUNCTIONS ===
-
-/// Запускает HTTP сервер с настроенными маршрутами
-///
-/// Объединяет API маршруты с опциональным UI, настраивает мониторинг
-/// через Prometheus метрики и CORS политики. Выводит ASCII логотип
-/// и информацию о запуске сервера.
-///
-/// # Arguments
-///
-/// * `api` - Router с API endpoints
-/// * `ui` - Опциональный Router для пользовательского интерфейса
-/// * `host` - IP адрес для привязки сервера
-/// * `port` - Порт для прослушивания
-///
-/// # Panics
-///
-/// Завершает программу с ошибкой если не удается:
-/// - Привязаться к указанному адресу
-/// - Запустить HTTP сервер
 pub async fn run_app(api: Router, ui: Option<Router>, host: IpAddr, port: u16) {
-    // Настраиваем слой метрик Prometheus для мониторинга
     let (prometheus_layer, prometheus_handle) = PrometheusMetricLayer::pair();
-    
     let app = api
         .layer(CorsLayer::permissive())
         .layer(prometheus_layer)
@@ -56,7 +21,6 @@ pub async fn run_app(api: Router, ui: Option<Router>, host: IpAddr, port: u16) {
             routing::get(metrics::metrics).with_state(Arc::new(prometheus_handle)),
         );
 
-    // Добавляем UI маршруты если они предоставлены
     let app = if let Some(ui) = ui {
         app.merge(ui)
     } else {
@@ -65,8 +29,6 @@ pub async fn run_app(api: Router, ui: Option<Router>, host: IpAddr, port: u16) {
 
     let address = SocketAddr::from((host, port));
     let version = env!("CARGO_PKG_VERSION");
-    
-    // Выводим приветственное сообщение с логотипом
     println!(
         r#"
 ████████╗ █████╗ ██████╗ ██████╗ ██╗   ██╗
@@ -80,7 +42,6 @@ pub async fn run_app(api: Router, ui: Option<Router>, host: IpAddr, port: u16) {
 🚀 Listening at http://{address}
 "#
     );
-    
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
     axum::serve(
@@ -91,7 +52,13 @@ pub async fn run_app(api: Router, ui: Option<Router>, host: IpAddr, port: u16) {
     .unwrap_or_else(|err| fatal!("Error happens during serving: {}", err))
 }
 
-// Re-exports для публичного API
+mod chat;
+mod completions;
+mod events;
+mod health;
+mod models;
+mod server_setting;
+
 pub use chat::*;
 pub use completions::*;
 pub use events::*;

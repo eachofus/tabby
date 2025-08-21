@@ -1,25 +1,9 @@
-//! Модуль для запуска HTTP сервера Tabby с API endpoints
-//!
-//! Предоставляет функциональность для запуска веб-сервера с поддержкой
-//! автодополнения кода, чат-функций и интеграции с IDE. Включает настройку
-//! маршрутизации, middleware, OpenAPI документации и системы мониторинга.
-
-// === IMPORTS ===
 use std::{net::IpAddr, sync::Arc, time::Duration};
 
 use axum::{routing, Extension, Router};
 use clap::Args;
 use hyper::StatusCode;
 use spinners::{Spinner, Spinners, Stream};
-use tokio::{sync::oneshot::Sender, time::sleep};
-use tower_http::timeout::TimeoutLayer;
-use tracing::{debug, warn};
-use utoipa::{
-    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
-    Modify, OpenApi,
-};
-use utoipa_swagger_ui::SwaggerUi;
-
 use tabby_common::{
     api::{self, code::CodeSearch, event::EventLogger},
     axum::AllowedCodeRepository,
@@ -29,6 +13,14 @@ use tabby_common::{
 use tabby_download::ModelKind;
 #[cfg(feature = "ee")]
 use tabby_webserver::EEApiDoc;
+use tokio::{sync::oneshot::Sender, time::sleep};
+use tower_http::timeout::TimeoutLayer;
+use tracing::{debug, warn};
+use utoipa::{
+    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
+    Modify, OpenApi,
+};
+use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
     routes::{self, run_app, ChatState},
@@ -45,71 +37,6 @@ use crate::{
     to_local_config, Device,
 };
 
-// === STRUCTS ===
-
-/// Аргументы командной строки для команды serve
-///
-/// Содержит все параметры для настройки HTTP сервера, включая модели,
-/// сетевые настройки, устройства для инференса и параметры производительности.
-///
-/// # Examples
-///
-/// ```bash
-/// tabby serve --model codellama:7b --chat-model codellama:7b --host 0.0.0.0 --port 8080
-/// ```
-#[derive(Args)]
-pub struct ServeArgs {
-    /// Идентификатор модели для API endpoint `/completions`
-    ///
-    /// Определяет модель, используемую для автодополнения кода.
-    /// Если не указана, используется модель из конфигурационного файла.
-    #[clap(long)]
-    model: Option<String>,
-
-    /// Идентификатор модели для API endpoints `/chat/completions`
-    ///
-    /// Определяет модель для чат-функций и диалогового взаимодействия.
-    /// Если не указана, чат-функции будут недоступны.
-    #[clap(long)]
-    chat_model: Option<String>,
-
-    /// IP адрес для привязки сервера
-    #[clap(long, default_value = "0.0.0.0")]
-    host: IpAddr,
-
-    /// Порт для HTTP сервера
-    #[clap(long, default_value_t = 8080)]
-    port: u16,
-
-    /// Устройство для выполнения инференса основной модели
-    #[clap(long, default_value_t=Device::Cpu)]
-    device: Device,
-
-    /// Устройство для выполнения инференса чат-модели
-    ///
-    /// По умолчанию использует то же устройство, что и основная модель.
-    /// Требует указания chat_model.
-    #[clap(long, requires("chat_model"))]
-    chat_device: Option<Device>,
-
-    /// Уровень параллелизма для обслуживания модели
-    ///
-    /// Увеличение этого параметра значительно влияет на требования к памяти,
-    /// особенно к GPU vRAM. Рекомендуется начинать с 1 и увеличивать постепенно.
-    #[clap(long, default_value_t = 1)]
-    parallelism: u8,
-
-    /// Отключить встроенный веб-сервер (только для Enterprise Edition)
-    #[cfg(feature = "ee")]
-    #[clap(hide = true, long, default_value_t = false)]
-    no_webserver: bool,
-}
-
-/// OpenAPI документация для публичного API
-///
-/// Автоматически генерирует документацию для всех доступных endpoints
-/// с описанием параметров, схем данных и примеров использования.
-/// Интегрируется с Swagger UI для интерактивного тестирования.
 #[derive(OpenApi)]
 #[openapi(
     info(title="Tabby Server",
@@ -153,54 +80,40 @@ Install following IDE / Editor extensions to get started with [Tabby](https://gi
 )]
 struct ApiDoc;
 
-/// Модификатор для добавления схемы безопасности в OpenAPI
-///
-/// Добавляет поддержку Bearer токенов для аутентификации в API.
-/// Используется для защищённых endpoints в Enterprise версии.
-struct SecurityAddon;
+#[derive(Args)]
+pub struct ServeArgs {
+    /// Model id for `/completions` API endpoint.
+    #[clap(long)]
+    model: Option<String>,
 
-// === IMPLEMENTATIONS ===
+    /// Model id for `/chat/completions` API endpoints.
+    #[clap(long)]
+    chat_model: Option<String>,
 
-impl Modify for SecurityAddon {
-    /// Добавляет схему безопасности Bearer token в OpenAPI спецификацию
-    ///
-    /// Настраивает HTTP Bearer аутентификацию для защищённых API endpoints.
-    /// Токены передаются в заголовке Authorization.
-    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        if let Some(components) = &mut openapi.components {
-            components.add_security_scheme(
-                "token",
-                SecurityScheme::Http(
-                    HttpBuilder::new()
-                        .scheme(HttpAuthScheme::Bearer)
-                        .bearer_format("token")
-                        .build(),
-                ),
-            )
-        }
-    }
+    #[clap(long, default_value = "0.0.0.0")]
+    host: IpAddr,
+
+    #[clap(long, default_value_t = 8080)]
+    port: u16,
+
+    /// Device to run model inference.
+    #[clap(long, default_value_t=Device::Cpu)]
+    device: Device,
+
+    /// Device to run chat model [default equals --device arg]
+    #[clap(long, requires("chat_model"))]
+    chat_device: Option<Device>,
+
+    /// Parallelism for model serving - increasing this number will have a significant impact on the
+    /// memory requirement e.g., GPU vRAM.
+    #[clap(long, default_value_t = 1)]
+    parallelism: u8,
+
+    #[cfg(feature = "ee")]
+    #[clap(hide = true, long, default_value_t = false)]
+    no_webserver: bool,
 }
 
-// === FREE FUNCTIONS ===
-
-/// Главная функция для запуска HTTP сервера
-///
-/// Инициализирует все необходимые сервисы, загружает модели, настраивает
-/// маршрутизацию и запускает HTTP сервер. Также настраивает мониторинг
-/// состояния системы и интеграцию с веб-интерфейсом (в EE версии).
-///
-/// # Arguments
-///
-/// * `config` - Конфигурация приложения из файла настроек
-/// * `args` - Аргументы командной строки для переопределения настроек
-///
-/// # Examples
-///
-/// ```rust
-/// let config = Config::load().expect("Failed to load config");
-/// let args = ServeArgs::parse();
-/// main(&config, &args).await;
-/// ```
 pub async fn main(config: &Config, args: &ServeArgs) {
     let config = merge_args(config, args);
 
@@ -304,15 +217,6 @@ pub async fn main(config: &Config, args: &ServeArgs) {
     run_app(api, Some(ui), args.host, args.port).await
 }
 
-/// Загружает необходимые модели перед запуском сервера
-///
-/// Проверяет конфигурацию и загружает модели для автодополнения,
-/// чата и эмбеддингов, если они настроены как локальные.
-/// Использует асинхронную загрузку для оптимизации времени запуска.
-///
-/// # Arguments
-///
-/// * `config` - Конфигурация с настройками моделей
 async fn load_model(config: &Config) {
     if let Some(ModelConfig::Local(ref model)) = config.model.completion {
         download_model_if_needed(&model.model_id, ModelKind::Completion).await;
@@ -327,25 +231,6 @@ async fn load_model(config: &Config) {
     }
 }
 
-/// Создаёт основной API роутер с настроенными endpoints
-///
-/// Настраивает маршрутизацию для всех API endpoints включая автодополнение,
-/// чат, мониторинг здоровья и настройки сервера. Применяет необходимые
-/// middleware для таймаутов и авторизации.
-///
-/// # Arguments
-///
-/// * `args` - Аргументы командной строки
-/// * `config` - Конфигурация приложения
-/// * `logger` - Логгер событий
-/// * `_code` - Сервис поиска по коду
-/// * `completion_state` - Сервис автодополнения (опционально)
-/// * `chat_state` - Состояние чат-сервиса (опционально)
-/// * `webserver` - Флаг наличия веб-сервера
-///
-/// # Returns
-///
-/// Возвращает настроенный Axum Router с подключенными endpoints.
 async fn api_router(
     args: &ServeArgs,
     config: &Config,
@@ -366,7 +251,6 @@ async fn api_router(
         webserver,
     ));
 
-    // Базовые endpoints (события, здоровье, модели)
     routers.push({
         Router::new()
             .route(
@@ -385,7 +269,6 @@ async fn api_router(
             .with_state(Arc::new(config.clone().into()))
     });
 
-    // Endpoints для автодополнения
     if let Some(completion_state) = completion_state {
         let mut router = Router::new()
             .route(
@@ -396,7 +279,6 @@ async fn api_router(
                 config.server.completion_timeout,
             )));
 
-        // Добавляем ограничения репозиториев если веб-сервер отключен
         if webserver.is_none() || webserver.is_some_and(|x| !x) {
             router = router.layer(Extension(AllowedCodeRepository::new_from_config()));
         }
@@ -411,7 +293,6 @@ async fn api_router(
         })
     }
 
-    // Endpoints для чата
     if let Some(chat_state) = chat_state {
         routers.push({
             Router::new().route(
@@ -420,7 +301,7 @@ async fn api_router(
             )
         });
 
-        // Поддержка legacy v1beta маршрута для обратной совместимости
+        // For forward compatibility of `/v1beta` route.
         routers.push({
             Router::new().route(
                 "/v1beta/chat/completions",
@@ -443,7 +324,6 @@ async fn api_router(
         });
     }
 
-    // Настройки сервера (только если веб-сервер отключен или не EE версия)
     let server_setting_router =
         Router::new().route("/v1beta/server_setting", routing::get(routes::setting));
 
@@ -455,7 +335,6 @@ async fn api_router(
     #[cfg(not(feature = "ee"))]
     routers.push(server_setting_router);
 
-    // Объединяем все роутеры
     let mut root = Router::new();
     for router in routers {
         root = root.merge(router);
@@ -463,17 +342,6 @@ async fn api_router(
     root
 }
 
-/// Запускает фоновую задачу для отправки heartbeat метрик
-///
-/// Периодически отправляет информацию о состоянии сервера в систему
-/// аналитики для мониторинга работоспособности и использования.
-/// Heartbeat отправляется каждые 50 минут.
-///
-/// # Arguments
-///
-/// * `args` - Аргументы командной строки
-/// * `config` - Конфигурация приложения  
-/// * `webserver` - Флаг наличия веб-сервера
 fn start_heartbeat(args: &ServeArgs, config: &Config, webserver: Option<bool>) {
     let state = Arc::new(health::HealthState::new(
         &config.model,
@@ -486,29 +354,31 @@ fn start_heartbeat(args: &ServeArgs, config: &Config, webserver: Option<bool>) {
     tokio::spawn(async move {
         loop {
             usage::capture("ServeHealth", &state).await;
-            // Отправляем heartbeat каждые 50 минут
             sleep(Duration::from_secs(3000)).await;
         }
     });
 }
 
-/// Объединяет конфигурацию из файла с аргументами командной строки
-///
-/// Аргументы командной строки имеют приоритет над настройками из файла.
-/// Выводит предупреждения при переопределении существующих настроек
-/// для информирования пользователя о потенциальных конфликтах.
-///
-/// # Arguments
-///
-/// * `config` - Базовая конфигурация из файла
-/// * `args` - Аргументы командной строки для переопределения
-///
-/// # Returns
-///
-/// Возвращает объединённую конфигурацию с применёнными переопределениями.
+struct SecurityAddon;
+
+impl Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = &mut openapi.components {
+            components.add_security_scheme(
+                "token",
+                SecurityScheme::Http(
+                    HttpBuilder::new()
+                        .scheme(HttpAuthScheme::Bearer)
+                        .bearer_format("token")
+                        .build(),
+                ),
+            )
+        }
+    }
+}
+
 fn merge_args(config: &Config, args: &ServeArgs) -> Config {
     let mut config = (*config).clone();
-    
     if let Some(model) = &args.model {
         if config.model.completion.is_some() {
             warn!("Overriding completion model from config.toml. The overriding behavior might surprise you. Consider setting the model in config.toml directly.");
@@ -530,16 +400,6 @@ fn merge_args(config: &Config, args: &ServeArgs) -> Config {
     config
 }
 
-/// Запускает спиннер загрузки в production режиме
-///
-/// В production режиме показывает анимированный индикатор загрузки
-/// для улучшения пользовательского опыта. В режиме разработки
-/// выводит простое сообщение в лог.
-///
-/// # Returns
-///
-/// Возвращает `Some(Sender)` для остановки спиннера в production режиме,
-/// или `None` в режиме разработки.
 fn try_run_spinner() -> Option<Sender<()>> {
     if cfg!(feature = "prod") {
         let (tx, rx) = tokio::sync::oneshot::channel();

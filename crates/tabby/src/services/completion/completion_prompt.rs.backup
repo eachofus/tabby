@@ -1,66 +1,22 @@
-//! Построение промптов для автодополнения кода
-//!
-//! Модуль предоставляет функциональность для создания контекстуальных промптов
-//! на основе сегментов кода, сниппетов из поиска и шаблонов промптов.
-//! Включает сбор релевантных фрагментов кода и их форматирование.
-
-// === IMPORTS ===
 use std::sync::Arc;
 
 use strfmt::strfmt;
-use tracing::warn;
-
 use tabby_common::{
     api::code::{CodeSearch, CodeSearchError, CodeSearchParams, CodeSearchQuery},
     axum::AllowedCodeRepository,
     languages::get_language,
 };
+use tracing::warn;
 
 use super::{Segments, Snippet};
 
-// === CONSTANTS ===
-/// Минимальный порог символов для включения сниппетов из поиска по коду
-const QUOTA_THRESHOLD_FOR_CODE_SEARCH: usize = 256;
-
-/// Максимальное количество символов в сниппетах для промпта
-const MAX_SNIPPETS_CHARS_IN_PROMPT: usize = 768;
-
-// === STRUCTS ===
-/// Построитель промптов для автодополнения кода
-///
-/// Объединяет параметры поиска, шаблоны промптов и сервис поиска по коду
-/// для создания контекстуальных промптов с релевантными сниппетами.
-///
-/// # Examples
-///
-/// ```rust
-/// let builder = PromptBuilder::new(
-///     &search_params,
-///     Some("<PRE> {prefix} <SUF>{suffix} <MID>".into()),
-///     Some(code_search_service),
-/// );
-/// 
-/// let snippets = builder.collect("rust", &segments, &allowed_repos).await;
-/// let prompt = builder.build("rust", segments, &snippets);
-/// ```
 pub struct PromptBuilder {
-    /// Параметры для поиска по коду
     code_search_params: CodeSearchParams,
-    /// Шаблон промпта с плейсхолдерами {prefix} и {suffix}
     prompt_template: Option<String>,
-    /// Сервис поиска по коду
     code: Option<Arc<dyn CodeSearch>>,
 }
 
-// === IMPLEMENTATIONS ===
 impl PromptBuilder {
-    /// Создаёт новый построитель промптов
-    ///
-    /// # Arguments
-    ///
-    /// * `code_search_params` - Параметры для поиска релевантных сниппетов
-    /// * `prompt_template` - Шаблон промпта с плейсхолдерами (опционально)
-    /// * `code` - Сервис поиска по коду (опционально)
     pub fn new(
         code_search_params: &CodeSearchParams,
         prompt_template: Option<String>,
@@ -73,61 +29,50 @@ impl PromptBuilder {
         }
     }
 
-    /// Собирает релевантные сниппеты кода для промпта
-    ///
-    /// Извлекает сниппеты из сегментов и дополняет их результатами поиска по коду.
-    /// Соблюдает ограничения по количеству символов и приоритизирует источники.
-    ///
-    /// # Arguments
-    ///
-    /// * `language` - Язык программирования для поиска
-    /// * `segments` - Сегменты кода с контекстом
-    /// * `allowed_code_repository` - Разрешённые репозитории для поиска
-    ///
-    /// # Returns
-    ///
-    /// Вектор сниппетов, отсортированных по релевантности
+    fn build_prompt(&self, prefix: String, suffix: String) -> String {
+        let Some(prompt_template) = &self.prompt_template else {
+            return prefix;
+        };
+
+        strfmt!(prompt_template, prefix => prefix, suffix => suffix).unwrap()
+    }
+
     pub async fn collect(
         &self,
         language: &str,
         segments: &Segments,
         allowed_code_repository: &AllowedCodeRepository,
     ) -> Vec<Snippet> {
-        let mut max_snippets_chars = MAX_SNIPPETS_CHARS_IN_PROMPT;
+        let quota_threshold_for_snippets_from_code_search = 256;
+        let mut max_snippets_chars_in_prompt = 768;
         let mut snippets: Vec<Snippet> = vec![];
 
-        // Сначала извлекаем сниппеты из сегментов (высший приоритет)
         if let Some((count_characters, snippets_from_segments)) =
-            extract_snippets_from_segments(max_snippets_chars, segments)
+            extract_snippets_from_segments(max_snippets_chars_in_prompt, segments)
         {
-            max_snippets_chars -= count_characters;
+            max_snippets_chars_in_prompt -= count_characters;
             snippets.extend(snippets_from_segments.into_iter());
         };
 
-        // Если места недостаточно для поиска по коду, возвращаем что есть
-        if max_snippets_chars <= QUOTA_THRESHOLD_FOR_CODE_SEARCH {
+        if max_snippets_chars_in_prompt <= quota_threshold_for_snippets_from_code_search {
             return snippets;
         }
 
-        // Проверяем наличие сервиса поиска
         let Some(code) = &self.code else {
             return snippets;
         };
 
-        // Проверяем наличие git URL в сегментах
         let Some(git_url) = segments.git_url.as_ref() else {
             return snippets;
         };
 
-        // Находим подходящий репозиторий
         let Some(source_id) = allowed_code_repository.closest_match(git_url) else {
             return snippets;
         };
 
-        // Дополняем сниппетами из поиска по коду
         let snippets_from_code_search = collect_snippets(
             &self.code_search_params,
-            max_snippets_chars,
+            max_snippets_chars_in_prompt,
             code.as_ref(),
             source_id,
             segments.filepath.as_deref(),
@@ -140,52 +85,18 @@ impl PromptBuilder {
         snippets
     }
 
-    /// Строит финальный промпт из сегментов и сниппетов
-    ///
-    /// Объединяет сниппеты с префиксом кода и применяет шаблон промпта
-    /// если он был предоставлен при создании построителя.
-    ///
-    /// # Arguments
-    ///
-    /// * `language` - Язык программирования для форматирования комментариев
-    /// * `segments` - Исходные сегменты кода
-    /// * `snippets` - Собранные релевантные сниппеты
-    ///
-    /// # Returns
-    ///
-    /// Готовый промпт для модели автодополнения
     pub fn build(&self, language: &str, segments: Segments, snippets: &[Snippet]) -> String {
         let segments = rewrite_with_snippets(language, segments, snippets);
         self.build_prompt(segments.prefix, get_default_suffix(segments.suffix))
     }
-
-    /// Применяет шаблон промпта к префиксу и суффиксу
-    ///
-    /// Если шаблон не задан, возвращает только префикс.
-    /// Использует форматирование строк для подстановки значений.
-    fn build_prompt(&self, prefix: String, suffix: String) -> String {
-        let Some(prompt_template) = &self.prompt_template else {
-            return prefix;
-        };
-
-        strfmt!(prompt_template, prefix => prefix, suffix => suffix).unwrap()
-    }
 }
 
-// === FREE FUNCTIONS ===
-/// Получает суффикс по умолчанию для промпта
-///
-/// Возвращает переданный суффикс если он не пустой, иначе символ новой строки.
 fn get_default_suffix(suffix: Option<String>) -> String {
     suffix
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "\n".to_string())
 }
 
-/// Переписывает сегменты с включением сниппетов в префикс
-///
-/// Если сниппеты присутствуют, добавляет их в начало префикса как комментарии.
-/// Сохраняет остальные поля сегментов без изменений.
 fn rewrite_with_snippets(language: &str, segments: Segments, snippets: &[Snippet]) -> Segments {
     if snippets.is_empty() {
         segments
@@ -195,20 +106,6 @@ fn rewrite_with_snippets(language: &str, segments: Segments, snippets: &[Snippet
     }
 }
 
-/// Строит префикс с включением сниппетов как комментариев
-///
-/// Форматирует сниппеты как комментарии на указанном языке программирования
-/// и добавляет их перед исходным префиксом.
-///
-/// # Arguments
-///
-/// * `language` - Язык для определения символа комментария
-/// * `prefix` - Исходный префикс кода
-/// * `snippets` - Сниппеты для включения
-///
-/// # Returns
-///
-/// Новый префикс с комментариями-сниппетами
 fn build_prefix(language: &str, prefix: &str, snippets: &[Snippet]) -> String {
     if snippets.is_empty() {
         return prefix.to_owned();
@@ -220,20 +117,17 @@ fn build_prefix(language: &str, prefix: &str, snippets: &[Snippet]) -> String {
 
     let mut lines: Vec<String> = vec![];
 
-    // Форматируем каждый сниппет с путём и содержимым
     for (i, snippet) in snippets.iter().enumerate() {
         lines.push(format!("Path: {}", snippet.filepath));
         for line in snippet.body.lines() {
             lines.push(line.to_owned());
         }
 
-        // Добавляем пустую строку между сниппетами (кроме последнего)
         if i < snippets.len() - 1 {
             lines.push("".to_owned());
         }
     }
 
-    // Превращаем все строки в комментарии
     let commented_lines: Vec<String> = lines
         .iter()
         .map(|x| {
@@ -244,24 +138,10 @@ fn build_prefix(language: &str, prefix: &str, snippets: &[Snippet]) -> String {
             }
         })
         .collect();
-
     let comments = commented_lines.join("\n");
     format!("{comments}\n{prefix}")
 }
 
-/// Извлекает сниппеты из сегментов с учётом приоритетов
-///
-/// Обрабатывает сниппеты в порядке приоритета: объявления, изменённые файлы,
-/// недавно открытые файлы. Соблюдает ограничение по количеству символов.
-///
-/// # Arguments
-///
-/// * `max_snippets_chars` - Максимальное количество символов для сниппетов
-/// * `segments` - Сегменты с различными типами сниппетов
-///
-/// # Returns
-///
-/// Опционально возвращает кортеж (количество_символов, вектор_сниппетов)
 fn extract_snippets_from_segments(
     max_snippets_chars: usize,
     segments: &Segments,
@@ -269,7 +149,7 @@ fn extract_snippets_from_segments(
     let mut count_characters = 0;
     let mut ret = Vec::new();
 
-    // Объявления имеют наивысший приоритет
+    // declarations has highest priority.
     if let Some(declarations) = &segments.declarations {
         for declaration in declarations {
             if count_characters + declaration.body.len() > max_snippets_chars {
@@ -284,7 +164,7 @@ fn extract_snippets_from_segments(
         }
     }
 
-    // Затем сниппеты из изменённых файлов
+    // then comes to the snippets from changed files.
     if let Some(relevant_snippets) = &segments.relevant_snippets_from_changed_files {
         for snippet in relevant_snippets {
             if count_characters + snippet.body.len() > max_snippets_chars {
@@ -300,7 +180,7 @@ fn extract_snippets_from_segments(
         }
     }
 
-    // Наконец, сниппеты из недавно открытых файлов
+    // then comes to the snippets from recently opened files.
     if let Some(relevant_snippets) = &segments.relevant_snippets_from_recently_opened_files {
         for snippet in relevant_snippets {
             if count_characters + snippet.body.len() > max_snippets_chars {
@@ -323,24 +203,6 @@ fn extract_snippets_from_segments(
     }
 }
 
-/// Собирает сниппеты через поиск по коду
-///
-/// Выполняет поиск релевантных фрагментов кода в указанном репозитории
-/// и возвращает отсортированные по релевантности результаты.
-///
-/// # Arguments
-///
-/// * `code_search_params` - Параметры поиска
-/// * `max_snippets_chars` - Максимальное количество символов
-/// * `code` - Сервис поиска по коду
-/// * `source_id` - Идентификатор источника (репозитория)
-/// * `filepath` - Путь к файлу (опционально)
-/// * `language` - Язык программирования
-/// * `content` - Содержимое для поиска
-///
-/// # Returns
-///
-/// Вектор найденных сниппетов с оценками релевантности
 async fn collect_snippets(
     code_search_params: &CodeSearchParams,
     max_snippets_chars: usize,
@@ -359,31 +221,29 @@ async fn collect_snippets(
 
     let mut ret = Vec::new();
 
-    // Выполняем поиск с обработкой различных типов ошибок
     let serp = match code
         .search_in_language(query, code_search_params.clone())
         .await
     {
         Ok(serp) => serp,
         Err(CodeSearchError::NotReady) => {
-            // Сервис поиска ещё не готов - это нормально
+            // Ignore.
             return vec![];
         }
         Err(CodeSearchError::TantivyError(err)) => {
-            warn!("Ошибка поиска в Tantivy: {}", err);
+            warn!("Failed to search: {}", err);
             return ret;
         }
         Err(CodeSearchError::QueryParserError(err)) => {
-            warn!("Ошибка парсинга запроса: {}", err);
+            warn!("Failed to parse query: {}", err);
             return ret;
         }
         Err(CodeSearchError::Other(err)) => {
-            warn!("Общая ошибка поиска: {}", err);
+            warn!("Failed to search: {}", err);
             return ret;
         }
     };
 
-    // Собираем результаты с учётом ограничения по символам
     let mut count_characters = 0;
     for hit in serp.hits {
         let body = hit.doc.body;
@@ -403,7 +263,6 @@ async fn collect_snippets(
     ret
 }
 
-// === TESTS ===
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
@@ -412,20 +271,18 @@ mod tests {
     use super::*;
     use crate::services::completion::Declaration;
 
-    /// Создаёт построитель промптов для тестирования
     fn create_prompt_builder(with_template: bool) -> PromptBuilder {
         let prompt_template = if with_template {
-            // Шаблон в стиле CodeLlama
+            // Init prompt builder with codellama prompt template
             Some("<PRE> {prefix} <SUF>{suffix} <MID>".into())
         } else {
             None
         };
 
-        // Построитель без поиска по коду
+        // Init prompt builder with prompt rewrite disabled.
         PromptBuilder::new(&CodeSearchParams::default(), prompt_template, None)
     }
 
-    /// Создаёт тестовые сегменты
     fn make_segment(prefix: String, suffix: Option<String>) -> Segments {
         Segments {
             prefix,
@@ -440,7 +297,6 @@ mod tests {
         }
     }
 
-    /// Мок-реализация поиска по коду для тестов
     struct MockCodeSearch(fn() -> Result<CodeSearchResponse, CodeSearchError>);
 
     #[async_trait]
@@ -456,13 +312,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_collect_snippets() {
-        // Ошибка "не готов" должна возвращать пустой вектор, а не ошибку
+        // Not ready error from CodeSearch should result in empty snippets, rather than error
         let search = MockCodeSearch(|| Err(CodeSearchError::NotReady));
         let snippets =
             collect_snippets(&CodeSearchParams::default(), 150, &search, "", None, "", "").await;
         assert_eq!(snippets, vec![]);
 
-        // Успешный поиск должен возвращать результаты
         let search = MockCodeSearch(|| {
             Ok(CodeSearchResponse {
                 hits: vec![Default::default()],
@@ -483,10 +338,12 @@ mod tests {
     #[test]
     fn test_prompt_template() {
         let pb = create_prompt_builder(true);
+
+        // Rewrite disabled, so the language doesn't matter.
         let language = "python";
         let snippets = &vec![];
 
-        // Тест с префиксом и суффиксом
+        // Test w/ prefix, w/ suffix.
         {
             let segments = make_segment(
                 "this is some prefix".into(),
@@ -498,7 +355,7 @@ mod tests {
             );
         }
 
-        // Тест с префиксом без суффикса
+        // Test w/ prefix, w/o suffix.
         {
             let segments = make_segment("this is some prefix".into(), None);
             assert_eq!(
@@ -507,7 +364,7 @@ mod tests {
             );
         }
 
-        // Тест с префиксом и пустым суффиксом
+        // Test w/ prefix, w/ empty suffix.
         {
             let segments = make_segment("this is some prefix".into(), Some("".into()));
             assert_eq!(
@@ -516,7 +373,7 @@ mod tests {
             );
         }
 
-        // Тест с пустым префиксом и суффиксом
+        // Test w/ empty prefix, w/ suffix.
         {
             let segments = make_segment("".into(), Some("this is some suffix".into()));
             assert_eq!(
@@ -525,7 +382,7 @@ mod tests {
             );
         }
 
-        // Тест с пустым префиксом без суффикса
+        // Test w/ empty prefix, w/o suffix.
         {
             let segments = make_segment("".into(), None);
             assert_eq!(
@@ -534,7 +391,7 @@ mod tests {
             );
         }
 
-        // Тест с пустым префиксом и пустым суффиксом
+        // Test w/ emtpy prefix, w/ empty suffix.
         {
             let segments = make_segment("".into(), Some("".into()));
             assert_eq!(
@@ -547,10 +404,12 @@ mod tests {
     #[test]
     fn test_no_prompt_template() {
         let pb = create_prompt_builder(false);
+
+        // Rewrite disabled, so the language doesn't matter.
         let language = "python";
         let snippets = &vec![];
 
-        // Без шаблона должен возвращаться только префикс
+        // Test w/ prefix, w/ suffix.
         {
             let segments = make_segment(
                 "this is some prefix".into(),
@@ -562,6 +421,7 @@ mod tests {
             );
         }
 
+        // Test w/ prefix, w/o suffix.
         {
             let segments = make_segment("this is some prefix".into(), None);
             assert_eq!(
@@ -570,6 +430,7 @@ mod tests {
             );
         }
 
+        // Test w/ prefix, w/ empty suffix.
         {
             let segments = make_segment("this is some prefix".into(), Some("".into()));
             assert_eq!(
@@ -578,16 +439,19 @@ mod tests {
             );
         }
 
+        // Test w/ empty prefix, w/ suffix.
         {
             let segments = make_segment("".into(), Some("this is some suffix".into()));
             assert_eq!(pb.build(language, segments, snippets), "");
         }
 
+        // Test w/ empty prefix, w/o suffix.
         {
             let segments = make_segment("".into(), None);
             assert_eq!(pb.build(language, segments, snippets), "");
         }
 
+        // Test w/ empty prefix, w/ empty suffix.
         {
             let segments = make_segment("".into(), Some("".into()));
             assert_eq!(pb.build(language, segments, snippets), "");
